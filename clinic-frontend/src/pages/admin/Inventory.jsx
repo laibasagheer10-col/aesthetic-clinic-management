@@ -19,12 +19,11 @@ function Inventory() {
     expiredItems: 0
   });
 
-  // CORRECTED: Using database field names
   const [form, setForm] = useState({
-    productName: "",        // Changed from name to productName
+    productName: "",
     category: "",
-    stockQuantity: "",      // Changed from quantity to stockQuantity
-    sellingPrice: "",       // Changed from price to sellingPrice
+    stockQuantity: "",
+    sellingPrice: "",
     purchasePrice: "",
     supplierId: "",
     expiryDate: "",
@@ -32,13 +31,11 @@ function Inventory() {
     notes: ""
   });
 
-  // CORRECTED: Using database field names for supplier
   const [supplierForm, setSupplierForm] = useState({
-    supplierName: "",       // This is the primary field in DB
+    supplierName: "",
     contact: "",
     company: "",
     address: ""
-    // Removed: name, phone, email, taxId, paymentTerms, notes (not in DB schema)
   });
 
   // Fetch inventory items
@@ -48,6 +45,7 @@ function Inventory() {
       const res = await api.get("/inventory");
       setItems(res.data);
     } catch (error) {
+      console.error("Failed to fetch inventory:", error);
       toast.error("Failed to fetch inventory");
     } finally {
       setLoading(false);
@@ -60,7 +58,7 @@ function Inventory() {
       const res = await api.get("/suppliers");
       setSuppliers(res.data);
     } catch (error) {
-      console.error("Failed to fetch suppliers");
+      console.error("Failed to fetch suppliers:", error);
     }
   };
 
@@ -70,7 +68,7 @@ function Inventory() {
       const res = await api.get("/inventory/stats");
       setStats(res.data);
     } catch (error) {
-      console.error("Failed to fetch stats");
+      console.error("Failed to fetch stats:", error);
     }
   };
 
@@ -80,7 +78,53 @@ function Inventory() {
     fetchStats();
   }, []);
 
-  // Handle inventory submit - CORRECTED field names
+  // ADD STOCK FUNCTION
+  const addStock = async (itemId) => {
+    const quantity = prompt("Enter quantity to add:", "1");
+    if (!quantity) return;
+    
+    const purchasePrice = prompt("Enter purchase price per unit (₨):", "0");
+    if (purchasePrice === null) return;
+    
+    try {
+      await api.post(`/inventory/${itemId}/add-stock`, { 
+        quantity: parseInt(quantity),
+        purchasePrice: parseFloat(purchasePrice) || 0,
+        notes: "Manual stock addition"
+      });
+      toast.success(`Added ${quantity} units ✅`);
+      fetchItems();
+      fetchStats();
+    } catch (error) {
+      console.error("Add stock error:", error);
+      toast.error(error.response?.data?.error || "Failed to add stock");
+    }
+  };
+
+  // REMOVE STOCK FUNCTION
+  const removeStock = async (itemId) => {
+    const quantity = prompt("Enter quantity to remove:", "1");
+    if (!quantity) return;
+    
+    const reason = prompt("Reason for removal? (Used/Expired/Damaged):", "Used");
+    if (!reason) return;
+    
+    try {
+      await api.post(`/inventory/${itemId}/remove-stock`, { 
+        quantity: parseInt(quantity),
+        reason: reason,
+        notes: `Stock removed: ${reason}`
+      });
+      toast.success(`Removed ${quantity} units ✅`);
+      fetchItems();
+      fetchStats();
+    } catch (error) {
+      console.error("Remove stock error:", error);
+      toast.error(error.response?.data?.error || "Failed to remove stock");
+    }
+  };
+
+  // Handle inventory submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -97,8 +141,7 @@ function Inventory() {
         purchasePrice: parseFloat(form.purchasePrice) || 0,
         supplierId: form.supplierId || null,
         expiryDate: form.expiryDate || null,
-        lowStockAlert: parseInt(form.lowStockAlert) || 10,
-        notes: form.notes || ''
+        lowStockAlert: parseInt(form.lowStockAlert) || 10
       };
 
       if (editData) {
@@ -114,23 +157,22 @@ function Inventory() {
       setModalOpen(false);
       resetForm();
     } catch (error) {
+      console.error("Submit error:", error);
       toast.error(error.response?.data?.error || "Operation failed ❌");
     }
   };
 
-  // Handle supplier submit - CORRECTED to match DB schema
+  // Handle supplier submit
   const handleSupplierSubmit = async (e) => {
     e.preventDefault();
     
-    const supplierName = supplierForm.supplierName;
-    
-    if (!supplierName) {
+    if (!supplierForm.supplierName) {
       return toast.error("Supplier name is required");
     }
 
     try {
       const supplierData = {
-        supplierName: supplierName,
+        supplierName: supplierForm.supplierName,
         contact: supplierForm.contact || '',
         company: supplierForm.company || '',
         address: supplierForm.address || ''
@@ -148,6 +190,7 @@ function Inventory() {
       setSupplierModalOpen(false);
       resetSupplierForm();
     } catch (error) {
+      console.error("Supplier error:", error);
       toast.error(error.response?.data?.error || "Operation failed ❌");
     }
   };
@@ -204,36 +247,13 @@ function Inventory() {
     setSupplierModalOpen(true);
   };
 
-  const addStock = async (itemId) => {
-    const quantity = prompt("Enter quantity to add:", "1");
-    if (!quantity) return;
-    
-    try {
-      await api.post(`/inventory/${itemId}/add-stock`, { 
-        quantity: parseInt(quantity),
-        notes: "Manual stock addition"
-      });
-      toast.success("Stock added ✅");
-      fetchItems();
-      fetchStats();
-    } catch (error) {
-      toast.error("Failed to add stock");
-    }
-  };
-
-  const getSupplierName = (supplierId) => {
-    if (!supplierId) return "No Supplier";
-    const supplier = suppliers.find(s => s._id === (supplierId._id || supplierId));
-    return supplier?.supplierName || "Unknown";
-  };
-
   const formatCurrency = (value) => {
+    if (!value && value !== 0) return "₨0";
     return `₨${value.toLocaleString()}`;
   };
 
-  // Check low stock
   const isLowStock = (quantity, alertLevel = 10) => {
-    return quantity < alertLevel;
+    return (quantity || 0) < (alertLevel || 10);
   };
 
   return (
@@ -334,7 +354,7 @@ function Inventory() {
           gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
           gap: "15px"
         }}>
-          {suppliers.map(supplier => (
+          {suppliers.map((supplier) => (
             <motion.div
               key={supplier._id}
               whileHover={{ scale: 1.02, y: -2 }}
@@ -367,7 +387,7 @@ function Inventory() {
                 <div>
                   <div style={{ color: "#666" }}>Products</div>
                   <div style={{ fontWeight: "bold" }}>
-                    {items.filter(item => 
+                    {items.filter((item) => 
                       item.supplierId?._id === supplier._id || item.supplierId === supplier._id
                     ).length}
                   </div>
@@ -385,7 +405,7 @@ function Inventory() {
       {/* Inventory Table */}
       {loading ? (
         <div style={{ textAlign: "center", padding: "40px" }}>
-          <div style={styles.loader} />
+          <div style={styles.loader}>Loading...</div>
         </div>
       ) : (
         <div style={{ overflowX: "auto" }}>
@@ -395,14 +415,14 @@ function Inventory() {
                 <th style={styles.th}>Product</th>
                 <th style={styles.th}>Category</th>
                 <th style={styles.th}>Stock</th>
-                <th style={styles.th}>Price</th>
+                <th style={styles.th}>Purchase Price</th>
                 <th style={styles.th}>Supplier</th>
                 <th style={styles.th}>Status</th>
                 <th style={styles.th}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {items.map(item => (
+              {items.map((item) => (
                 <motion.tr 
                   key={item._id}
                   initial={{ opacity: 0 }}
@@ -422,7 +442,7 @@ function Inventory() {
                       {item.stockQuantity || 0}
                     </span>
                   </td>
-                  <td style={styles.td}>{formatCurrency(item.sellingPrice || 0)}</td>
+                  <td style={styles.td}>{formatCurrency(item.purchasePrice || 0)}</td>
                   <td style={styles.td}>
                     {item.supplierId ? (
                       <span style={{
@@ -447,7 +467,7 @@ function Inventory() {
                     </span>
                   </td>
                   <td style={styles.td}>
-                    <div style={{ display: "flex", gap: "5px" }}>
+                    <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -456,6 +476,15 @@ function Inventory() {
                         title="Add Stock"
                       >
                         ➕
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => removeStock(item._id)}
+                        style={{ ...styles.actionButton, background: "#FF9800" }}
+                        title="Remove Stock"
+                      >
+                        ➖
                       </motion.button>
                       <motion.button
                         whileHover={{ scale: 1.05 }}
@@ -477,18 +506,8 @@ function Inventory() {
 
       {/* Product Modal */}
       {modalOpen && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          style={styles.modalOverlay}
-          onClick={() => setModalOpen(false)}
-        >
-          <motion.div 
-            initial={{ scale: 0.9, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            style={styles.modalContent}
-            onClick={e => e.stopPropagation()}
-          >
+        <div style={styles.modalOverlay} onClick={() => setModalOpen(false)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>
               {editData ? "✏️ Edit Product" : "➕ Add New Product"}
             </h2>
@@ -530,19 +549,6 @@ function Inventory() {
                 </div>
 
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Selling Price (₨) *</label>
-                  <input
-                    type="number"
-                    value={form.sellingPrice}
-                    onChange={(e) => setForm({...form, sellingPrice: e.target.value})}
-                    style={styles.input}
-                    required
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
                   <label style={styles.label}>Purchase Price (₨)</label>
                   <input
                     type="number"
@@ -573,7 +579,7 @@ function Inventory() {
                     style={styles.input}
                   >
                     <option value="">Select Supplier</option>
-                    {suppliers.map(s => (
+                    {suppliers.map((s) => (
                       <option key={s._id} value={s._id}>
                         {s.supplierName}
                       </option>
@@ -603,10 +609,8 @@ function Inventory() {
               </div>
 
               <div style={styles.buttonGroup}>
-                <motion.button
+                <button
                   type="button"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     setModalOpen(false);
                     resetForm();
@@ -614,36 +618,24 @@ function Inventory() {
                   style={{ ...styles.button, background: "#f44336" }}
                 >
                   Cancel
-                </motion.button>
+                </button>
                 
-                <motion.button
+                <button
                   type="submit"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                   style={{ ...styles.button, background: "#4CAF50" }}
                 >
                   {editData ? "Update" : "Save"}
-                </motion.button>
+                </button>
               </div>
             </form>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       )}
 
       {/* Supplier Modal */}
       {supplierModalOpen && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          style={styles.modalOverlay}
-          onClick={() => setSupplierModalOpen(false)}
-        >
-          <motion.div 
-            initial={{ scale: 0.9, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            style={styles.modalContent}
-            onClick={e => e.stopPropagation()}
-          >
+        <div style={styles.modalOverlay} onClick={() => setSupplierModalOpen(false)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>
               {editSupplier ? "✏️ Edit Supplier" : "➕ Add New Supplier"}
             </h2>
@@ -693,10 +685,8 @@ function Inventory() {
               </div>
 
               <div style={styles.buttonGroup}>
-                <motion.button
+                <button
                   type="button"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     setSupplierModalOpen(false);
                     resetSupplierForm();
@@ -704,26 +694,24 @@ function Inventory() {
                   style={{ ...styles.button, background: "#f44336" }}
                 >
                   Cancel
-                </motion.button>
+                </button>
                 
-                <motion.button
+                <button
                   type="submit"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                   style={{ ...styles.button, background: "#4CAF50" }}
                 >
                   {editSupplier ? "Update" : "Save"}
-                </motion.button>
+                </button>
               </div>
             </form>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       )}
     </motion.div>
   );
 }
 
-// Styles (keep your existing styles - they're perfect)
+// Styles
 const styles = {
   card: {
     padding: "20px",
@@ -779,8 +767,7 @@ const styles = {
   },
   tableRow: {
     borderBottom: "1px solid #eee",
-    transition: "background 0.3s",
-    cursor: "pointer"
+    transition: "background 0.3s"
   },
   td: {
     padding: "15px"
@@ -867,13 +854,10 @@ const styles = {
     fontWeight: "bold"
   },
   loader: {
-    width: "40px",
-    height: "40px",
-    border: "4px solid #f3f3f3",
-    borderTop: "4px solid #2196F3",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-    margin: "0 auto"
+    textAlign: "center",
+    padding: "40px",
+    fontSize: "18px",
+    color: "#666"
   }
 };
 

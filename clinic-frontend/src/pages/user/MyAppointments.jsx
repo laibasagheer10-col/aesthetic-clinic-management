@@ -20,18 +20,20 @@ function MyAppointments() {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      const user = JSON.parse(localStorage.getItem("user"));
-      const res = await api.get("/appointments");
+      const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
+      const user = JSON.parse(userStr);
       
-      // Filter appointments by current patient
-      const userAppointments = res.data.filter(
-        (app) => app.patientId?._id === user.id || app.patientId === user.id
-      );
+      console.log("Current user:", user);
       
-      setAppointments(userAppointments);
+      // Use the my-appointments endpoint
+      const res = await api.get("/appointments/my-appointments");
+      
+      console.log("Appointments response:", res.data);
+      
+      setAppointments(res.data || []);
     } catch (error) {
-      toast.error("Failed to load appointments");
-      console.error("Error:", error);
+      console.error("Error fetching appointments:", error);
+      toast.error(error.response?.data?.error || "Failed to load appointments");
     } finally {
       setLoading(false);
     }
@@ -44,9 +46,10 @@ function MyAppointments() {
 
     try {
       await api.put(`/appointments/${id}`, { status: "Cancelled" });
-      toast.success("Appointment cancelled");
+      toast.success("Appointment cancelled successfully");
       fetchAppointments();
     } catch (error) {
+      console.error("Cancel error:", error);
       toast.error("Failed to cancel appointment");
     }
   };
@@ -58,33 +61,40 @@ function MyAppointments() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "Pending":
-        return "#FF9800";
-      case "Confirmed":
-        return "#4CAF50";
-      case "Completed":
-        return "#2196F3";
-      case "Cancelled":
-        return "#f44336";
-      default:
-        return "#666";
+      case "Pending": return "#FF9800";
+      case "Confirmed": return "#4CAF50";
+      case "Completed": return "#2196F3";
+      case "Cancelled": return "#f44336";
+      default: return "#666";
     }
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return "Date not set";
     return new Date(dateString).toLocaleDateString("en-PK", {
       year: "numeric",
       month: "short",
       day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     });
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return "Time not set";
+    // Convert 24-hour format to 12-hour format
+    const [hours, minutes] = timeString.split(':');
+    let hour = parseInt(hours);
+    const minute = minutes || '00';
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12;
+    hour = hour ? hour : 12; // the hour '0' should be '12'
+    return `${hour}:${minute} ${ampm}`;
   };
 
   if (loading) {
     return (
       <div className="loading-container">
         <div className="loader"></div>
+        <p>Loading your appointments...</p>
       </div>
     );
   }
@@ -133,28 +143,13 @@ function MyAppointments() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               onClick={() =>
-                setExpandedId(
-                  expandedId === appointment._id ? null : appointment._id
-                )
+                setExpandedId(expandedId === appointment._id ? null : appointment._id)
               }
             >
               <div className="appointment-header">
                 <div className="appointment-info">
-                  <h3>
-                    📅{" "}
-                    {new Date(appointment.appointmentDate).toLocaleDateString(
-                      "en-PK"
-                    )}
-                  </h3>
-                  <p className="appointment-time">
-                    ⏰ {new Date(appointment.appointmentDate).toLocaleTimeString(
-                      "en-PK",
-                      {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }
-                    )}
-                  </p>
+                  <h3>📅 {formatDate(appointment.appointmentDate)}</h3>
+                  <p className="appointment-time">⏰ {formatTime(appointment.startTime)}</p>
                 </div>
                 <div className="appointment-status">
                   <span
@@ -177,27 +172,23 @@ function MyAppointments() {
                   <div className="details-grid">
                     <div className="detail-item">
                       <label>Doctor</label>
-                      <p>
-                        Dr.{" "}
-                        {appointment.doctorId?.name || appointment.doctorName || "Not assigned"}
-                      </p>
+                      <p>Dr. {appointment.doctorName || appointment.doctorId?.name || "Not assigned"}</p>
                     </div>
                     <div className="detail-item">
-                      <label>Type</label>
-                      <p>{appointment.type || "Consultation"}</p>
+                      <label>Service</label>
+                      <p>{appointment.serviceName || "Consultation"}</p>
                     </div>
                     <div className="detail-item">
-                      <label>Reason</label>
-                      <p>{appointment.reason || "Not specified"}</p>
+                      <label>Customer Name</label>
+                      <p>{appointment.customerName || "N/A"}</p>
+                    </div>
+                    <div className="detail-item">
+                      <label>Phone</label>
+                      <p>{appointment.customerPhone || "N/A"}</p>
                     </div>
                     <div className="detail-item">
                       <label>Payment Status</label>
-                      <p
-                        style={{
-                          color:
-                            appointment.paymentStatus === "Paid" ? "#4CAF50" : "#FF9800",
-                        }}
-                      >
+                      <p style={{ color: appointment.paymentStatus === "Paid" ? "#4CAF50" : "#FF9800" }}>
                         {appointment.paymentStatus || "Unpaid"}
                       </p>
                     </div>
@@ -224,16 +215,15 @@ function MyAppointments() {
                         Cancel Appointment
                       </motion.button>
                     )}
-                    {appointment.paymentStatus === "Unpaid" &&
-                      appointment.status !== "Cancelled" && (
-                        <Link
-                          to="/user/payments"
-                          className="pay-btn"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Make Payment
-                        </Link>
-                      )}
+                    {appointment.paymentStatus === "Unpaid" && appointment.status !== "Cancelled" && (
+                      <Link
+                        to="/user/payments"
+                        className="pay-btn"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Make Payment
+                      </Link>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -243,7 +233,7 @@ function MyAppointments() {
       ) : (
         <div className="empty-state">
           <div className="empty-icon">📅</div>
-          <h2>No Appointments</h2>
+          <h2>No Appointments Found</h2>
           <p>You haven't booked any appointments yet.</p>
           <Link to="/user/book-appointment" className="book-new-btn">
             Book Your First Appointment

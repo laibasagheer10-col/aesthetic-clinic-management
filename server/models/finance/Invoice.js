@@ -1,10 +1,9 @@
-// server/models/finance/Invoice.js
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const InvoiceSchema = new Schema({
-  invoiceNumber: { type: String, required: true, unique: true },
-  patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
+  invoiceNumber: { type: String, unique: true },
+  patientId: { type: Schema.Types.ObjectId, ref: 'User', required: true }, // References User model (actual patients)
   paymentId: { type: Schema.Types.ObjectId, ref: 'Payment' },
   items: [{
     description: String,
@@ -14,21 +13,17 @@ const InvoiceSchema = new Schema({
   }],
   subtotal: { type: Number, required: true },
   tax: { type: Number, default: 0 },
+  taxRate: { type: Number, default: 0 },
   discount: { type: Number, default: 0 },
   total: { type: Number, required: true },
-  status: { 
-    type: String, 
-    enum: ['Draft', 'Sent', 'Paid', 'Cancelled'], 
-    default: 'Draft' 
-  },
+  status: { type: String, enum: ['Draft', 'Sent', 'Paid', 'Cancelled'], default: 'Draft' },
   dueDate: Date,
   paidDate: Date,
   notes: String,
   createdBy: { type: Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 
-// Generate invoice number before saving
-InvoiceSchema.pre('save', async function(next) {
+InvoiceSchema.pre('save', async function() {
   if (!this.invoiceNumber) {
     const date = new Date();
     const year = date.getFullYear().toString().slice(-2);
@@ -36,7 +31,6 @@ InvoiceSchema.pre('save', async function(next) {
     const count = await mongoose.model('Invoice').countDocuments();
     this.invoiceNumber = `INV-${year}${month}-${(count + 1).toString().padStart(4, '0')}`;
   }
-  next();
 });
 
 module.exports = mongoose.model('Invoice', InvoiceSchema);

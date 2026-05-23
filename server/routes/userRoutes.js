@@ -11,11 +11,35 @@ router.use(verifyToken);
 router.put('/profile', userController.updateProfile);
 router.put('/change-password', userController.changePassword);
 
+// Custom access control for GET /users
+const allowGetUsers = (req, res, next) => {
+  if (['SuperAdmin', 'Admin'].includes(req.user.role)) {
+    return next();
+  }
+  // Allow fetching doctors for booking appointments
+  if (req.method === 'GET' && req.query.role === 'Doctor') {
+    return next();
+  }
+  return res.status(403).json({ message: "Forbidden: Access denied" });
+};
+
+// Custom access control for /:id
+const allowUserId = (req, res, next) => {
+  if (['SuperAdmin', 'Admin'].includes(req.user.role)) {
+    return next();
+  }
+  // Allow accessing own profile
+  if (req.params.id && req.user.id.toString() === req.params.id) {
+    return next();
+  }
+  return res.status(403).json({ message: "Forbidden: Access denied" });
+};
+
 // User management routes
-router.get('/', authorizeRoles('SuperAdmin', 'Admin'), userController.getAllUsers);
+router.get('/', allowGetUsers, userController.getAllUsers);
 router.post('/', authorizeRoles('SuperAdmin', 'Admin'), userController.createUser);
-router.get('/:id', authorizeRoles('SuperAdmin', 'Admin'), userController.getUserById);
-router.put('/:id', authorizeRoles('SuperAdmin', 'Admin'), userController.updateUser);
+router.get('/:id', allowUserId, userController.getUserById);
+router.put('/:id', allowUserId, userController.updateUser);
 router.put('/:id/status', authorizeRoles('SuperAdmin', 'Admin'), userController.updateUserStatus);
 router.delete('/:id', authorizeRoles('SuperAdmin'), userController.deleteUser);
 

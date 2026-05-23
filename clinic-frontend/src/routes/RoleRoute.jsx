@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 
 function RoleRoute({ children, allowedRoles }) {
-  const userStr = localStorage.getItem("user");
+  const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
   
   if (!userStr) {
     return <Navigate to="/login" replace />;

@@ -32,9 +32,16 @@ function Services() {
     }
   };
 
-  const handleBookNow = (serviceName) => {
-    // Navigate to register page or booking page
-    navigate('/register', { state: { selectedService: serviceName } });
+  const handleBookNow = (service) => {
+    // Store the selected service in localStorage for post-login retrieval
+    localStorage.setItem('pendingService', JSON.stringify({
+      _id: service._id,
+      name: service.name,
+      price: service.price || 0,
+      description: service.description
+    }));
+    // Navigate to register page - service will be preselected after login
+    navigate('/register', { state: { selectedService: service.name } });
   };
 
   if (loading) {
@@ -261,7 +268,7 @@ function Services() {
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => handleBookNow(service.name)}
+                onClick={() => handleBookNow(service)}
                 style={{
                   width: '100%',
                   padding: '12px 20px',

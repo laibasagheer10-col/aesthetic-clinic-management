@@ -9,7 +9,21 @@ exports.getAllUsers = async (req, res) => {
     let query = {};
 
     // Apply filters
-    if (role) query.roleId = role;
+    if (role) {
+      if (role.match(/^[0-9a-fA-F]{24}$/)) {
+        query.roleId = role;
+      } else {
+        // Case-insensitive role name search
+        const roleDoc = await Role.findOne({ 
+          roleName: { $regex: new RegExp('^' + role + '$', 'i') } 
+        });
+        if (roleDoc) {
+          query.roleId = roleDoc._id;
+        } else {
+          query.roleId = null;
+        }
+      }
+    }
     if (status) query.status = status;
     if (search) {
       query.$or = [
@@ -51,7 +65,24 @@ exports.getUserById = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json(user);
+    // If it's a patient, also fetch patient details
+    let userData = user.toObject();
+    const Patient = require('../models/patient/Patient');
+    const patient = await Patient.findOne({ userId: user._id });
+    
+    if (patient) {
+      userData = {
+        ...userData,
+        dateOfBirth: patient.dateOfBirth,
+        gender: patient.gender,
+        address: patient.address,
+        bloodType: patient.bloodGroup,
+        medicalHistory: patient.medicalHistory,
+        allergies: patient.allergies
+      };
+    }
+
+    res.json(userData);
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ error: error.message });
@@ -100,32 +131,93 @@ exports.createUser = async (req, res) => {
 // Update user
 exports.updateUser = async (req, res) => {
   try {
-    const { name, phone, roleId, department, status } = req.body;
+    const { 
+      name, phone, profileImage, department, 
+      dateOfBirth, gender, address, bloodType, medicalHistory, allergies 
+    } = req.body;
+    let { roleId, status } = req.body;
     const userId = req.params.id;
 
-    // Prevent SuperAdmin from being modified by non-SuperAdmin
+    // 1. Security Check
     const targetUser = await User.findById(userId).populate('roleId');
     const currentUser = await User.findById(req.user.id).populate('roleId');
 
-    if (targetUser?.roleId?.roleName === 'SuperAdmin' && 
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const isAdmin = ['SuperAdmin', 'Admin'].includes(currentUser?.roleId?.roleName);
+
+    // Prevent non-admins from changing role or status
+    if (!isAdmin) {
+      roleId = targetUser.roleId._id;
+      status = targetUser.status;
+    }
+
+    // Prevent SuperAdmin from being modified by non-SuperAdmin
+    if (targetUser.roleId.roleName === 'SuperAdmin' && 
         currentUser?.roleId?.roleName !== 'SuperAdmin') {
       return res.status(403).json({ error: 'Cannot modify SuperAdmin user' });
     }
 
+    // 2. Update User Record
+    // Handle roleId if it's an object (populated)
+    const updateData = { name, phone, status };
+    if (profileImage) updateData.profileImage = profileImage;
+    if (isAdmin) {
+      if (roleId) updateData.roleId = roleId._id || roleId;
+      if (department) updateData.department = department;
+    }
+
     const user = await User.findByIdAndUpdate(
       userId,
-      { name, phone, roleId, department, status },
+      updateData,
       { new: true, runValidators: true }
     )
       .populate('roleId')
-      .populate('createdBy', 'name email')
       .select('-password');
 
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+    // 3. Update Patient Record (if user is a patient or has patient data)
+    const Patient = require('../models/patient/Patient');
+    let patient = await Patient.findOne({ userId: user._id });
+    
+    if (!patient && (dateOfBirth || address || gender)) {
+      // Create patient profile if it doesn't exist but data is provided
+      patient = new Patient({
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone
+      });
     }
 
-    res.json(user);
+    if (patient) {
+      if (name) patient.name = name;
+      if (phone) patient.phone = phone;
+      if (dateOfBirth) patient.dateOfBirth = dateOfBirth;
+      if (gender) patient.gender = gender;
+      if (address) patient.address = address;
+      if (bloodType) patient.bloodGroup = bloodType;
+      if (medicalHistory) patient.medicalHistory = medicalHistory;
+      if (allergies) patient.allergies = allergies;
+      
+      await patient.save();
+    }
+
+    // Return merged data
+    const finalData = user.toObject();
+    if (patient) {
+      Object.assign(finalData, {
+        dateOfBirth: patient.dateOfBirth,
+        gender: patient.gender,
+        address: patient.address,
+        bloodType: patient.bloodGroup,
+        medicalHistory: patient.medicalHistory,
+        allergies: patient.allergies
+      });
+    }
+
+    res.json(finalData);
   } catch (error) {
     console.error('Error updating user:', error);
     res.status(500).json({ error: error.message });

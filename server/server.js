@@ -1,6 +1,4 @@
 // server.js (Professional Updated Version)
-// Add this at the VERY TOP of server.js
-
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "1";
 
 const path = require('path');
@@ -10,8 +8,9 @@ console.log("Current working directory:", __dirname);
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const cookieParser = require('cookie-parser'); // ADD THIS
 require("ssl-root-cas").inject();
-require("dotenv").config({ path: "../.env" }); // Load .env
+require("dotenv").config({ path: "../.env" });
 
 // ===== Ensure uploads directory exists =====
 const uploadsDir = path.join(__dirname, 'public/uploads');
@@ -31,6 +30,7 @@ console.log("✅ Upload directories ready at:", uploadsDir);
 const authController = require("./controllers/authController");
 const roleController = require("./controllers/roleController");
 const userController = require("./controllers/userController");
+const notificationController = require("./controllers/notificationController");
 const patientController = require("./controllers/patientController");
 const treatmentController = require("./controllers/treatmentController");
 const appointmentController = require("./controllers/appointmentController");
@@ -41,6 +41,8 @@ const supplierController = require("./controllers/supplierController");
 const reportController = require("./controllers/reportController");
 const forgotPasswordController = require("./controllers/forgotPasswordController");
 const uploadRoutes = require("./routes/uploadRoutes");
+const invoiceController = require("./controllers/invoiceController");
+
 // ===== Routes =====
 const authRoutes = require("./routes/authRoutes");
 const roleRoutes = require("./routes/roleRoutes");
@@ -55,12 +57,9 @@ const supplierRoutes = require("./routes/supplierRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
-const adminRoutes = require("./routes/adminRoutes"); // 🔥 NEW
+const adminRoutes = require("./routes/adminRoutes");
 const testInsertRoutes = require("./routes/test-insert");
-// Add with other routes
 const invoiceRoutes = require("./routes/invoiceRoutes");
-
-
 
 // ===== Middleware =====
 const { verifyToken } = require("./middleware/authMiddleware");
@@ -69,30 +68,30 @@ const { authorizeRoles, adminAndAbove, superAdminOnly } = require("./middleware/
 // ===== Express App =====
 const app = express();
 
-// ===== IMPORTANT: Configure CORS with proper headers =====
+// ===== MIDDLEWARE SETUP - ORDER MATTERS =====
+app.use(cookieParser()); // ADD THIS - Must be before routes
+
+// CORS with credentials
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true,
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:3000'],
+  credentials: true, // Important for cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// ===== IMPORTANT: Serve static files EARLY =====
-// This must be before API routes to ensure files are accessible
+// ===== Serve static files =====
 const uploadsPath = path.join(__dirname, 'public/uploads');
 console.log("📁 Uploading from:", uploadsPath);
 console.log("📁 Path exists:", fs.existsSync(uploadsPath));
 
-// Add CORS headers and debug logging to static files
 app.use('/uploads', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   res.header('Cache-Control', 'public, max-age=3600');
   
-  // Debug: log the request
   const fullPath = path.join(uploadsPath, req.path);
   const fileExists = fs.existsSync(fullPath);
   console.log(`📂 [${req.method}] /uploads${req.path}`, {
@@ -105,7 +104,6 @@ app.use('/uploads', (req, res, next) => {
   next();
 });
 
-// Serve static files with custom error handling
 app.use('/uploads', express.static(uploadsPath, {
   etag: false,
   setHeaders: (res, filePath) => {
@@ -114,7 +112,6 @@ app.use('/uploads', express.static(uploadsPath, {
   }
 }));
 
-// Handle 404 for /uploads routes specifically
 app.use('/uploads', (req, res) => {
   const fullPath = path.join(uploadsPath, req.path);
   const dirContents = fs.readdirSync(uploadsPath, { recursive: true }).slice(0, 20);
@@ -150,13 +147,13 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 
 // 🔥 SUPER ADMIN ONLY ROUTES
-app.use("/api/admin", adminRoutes); // All admin routes have built-in SuperAdmin check
+app.use("/api/admin", adminRoutes);
 
 // Role management (SuperAdmin only)
 app.use("/api/roles", verifyToken, superAdminOnly, roleRoutes);
 
 // User management (Admin+)
-app.use("/api/users", verifyToken, adminAndAbove, userRoutes);
+app.use("/api/users", verifyToken, userRoutes);
 
 // Patient management (All authenticated users)
 app.use("/api/patients", verifyToken, patientRoutes);
@@ -170,25 +167,26 @@ app.use("/api/appointments", verifyToken, appointmentRoutes);
 // Payment & Finance
 app.use("/api/payments", verifyToken, paymentRoutes);
 app.use("/api/expenses", verifyToken, expenseRoutes);
+app.use("/api/easypaisa", require("./routes/easypaisaRoutes"));
+app.use("/api/payroll", require("./routes/payrollRoutes"));
 
 // Inventory & Supplier
 app.use("/api/inventory", verifyToken, inventoryRoutes);
 app.use("/api/suppliers", verifyToken, supplierRoutes);
-// Add after other routes
 app.use("/api/invoices", verifyToken, invoiceRoutes);
 
 // Reports / Dashboard
 app.use("/api/reports", verifyToken, adminAndAbove, reportRoutes);
 app.use("/api/dashboard", verifyToken, dashboardRoutes);
 
+
+// Make sure this line exists (it should already be there)
+app.use("/api/invoices", verifyToken, invoiceRoutes);
+
 // Notifications
 app.use("/api/notifications", verifyToken, notificationRoutes);
-// Add these lines in your server.js after other routes
-// Add after other routes
 app.use("/api/upload", uploadRoutes);
 
-// Serve static files
-app.use('/uploads', express.static('public/uploads'));
 app.use("/api/services", require("./routes/serviceRoutes"));
 app.use("/api/testimonials", require("./routes/testimonialRoutes"));
 app.use("/api/blogs", require("./routes/blogRoutes"));
@@ -197,23 +195,20 @@ app.use("/api/gallery", require("./routes/galleryRoutes"));
 // ===== Doctor & Settings =====
 app.use("/api/doctor", require("./routes/doctorRoutes"));
 app.use("/api/settings", require("./routes/settingsRoutes"));
-// Add with other routes
-const activityLogRoutes = require("./routes/activityLogRoutes");
 
-// Add after other routes
+const activityLogRoutes = require("./routes/activityLogRoutes");
 app.use("/api/activity-logs", verifyToken, authorizeRoles('SuperAdmin', 'Admin'), activityLogRoutes);
 
 // Test route
 app.use("/api/test-insert", testInsertRoutes);
 
-// 🔍 Diagnostic routes - Debug image and data issues
+// 🔍 Diagnostic routes
 const diagnosisRoutes = require("./routes/diagnosisRoutes");
 app.use("/api/diagnosis", diagnosisRoutes);
 
 // Error Handler
 const errorHandler = require("./middleware/errorHandler");
 app.use(errorHandler);
-
 
 // ===== Start Server =====
 const PORT = process.env.PORT || 5000;

@@ -51,8 +51,8 @@ import RoleRoute from "./routes/RoleRoute";
 function App() {
   console.log("📱 App component rendering");
   console.log("Current URL:", window.location.href);
-  console.log("LocalStorage token:", localStorage.getItem("token"));
-  console.log("LocalStorage user:", localStorage.getItem("user"));
+  console.log("LocalStorage token:", localStorage.getItem("token") || sessionStorage.getItem("token"));
+  console.log("LocalStorage user:", localStorage.getItem("user") || sessionStorage.getItem("user"));
   
   return (
     <>

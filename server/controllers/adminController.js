@@ -1,13 +1,14 @@
 const User = require('../models/auth/User');
 const Role = require('../models/auth/Role');
 const AuditLog = require('../models/auth/ActivityLog');
+const ClinicSetting = require('../models/appointment/ClinicSetting'); // ✅ ADD THIS LINE
 const { successResponse, errorResponse } = require("../utils/response");
 
 // ===== GET ALL USERS WITH DETAILS =====
 exports.getAllUsers = async (req, res, next) => {
   try {
     const { page = 1, limit = 10, role, status } = req.query;
-    
+
     const query = {};
     if (role) query.roleId = role;
     if (status) query.status = status;
@@ -218,5 +219,99 @@ exports.updateRolePermissions = async (req, res, next) => {
     return successResponse(res, "Role updated successfully", role);
   } catch (error) {
     next(error);
+  }
+};
+
+// ============================================
+// ========== CLINIC SETTINGS FUNCTIONS ==========
+// ============================================
+
+// ===== GET CLINIC SETTINGS =====
+exports.getClinicSettings = async (req, res) => {
+  try {
+    let settings = await ClinicSetting.findOne();
+    if (!settings) {
+      settings = await ClinicSetting.create({});
+    }
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ===== UPDATE CLINIC SETTINGS =====
+exports.updateClinicSettings = async (req, res) => {
+  try {
+    const { weeklyHours, holidays, specialHours, slotDuration, maxBookingsPerSlot, advanceBookingDays, minBookingNotice } = req.body;
+
+    let settings = await ClinicSetting.findOne();
+    if (!settings) {
+      settings = new ClinicSetting();
+    }
+
+    if (weeklyHours) settings.weeklyHours = weeklyHours;
+    if (holidays) settings.holidays = holidays;
+    if (specialHours) settings.specialHours = specialHours;
+    if (slotDuration) settings.slotDuration = slotDuration;
+    if (maxBookingsPerSlot) settings.maxBookingsPerSlot = maxBookingsPerSlot;
+    if (advanceBookingDays) settings.advanceBookingDays = advanceBookingDays;
+    if (minBookingNotice) settings.minBookingNotice = minBookingNotice;
+
+    settings.lastUpdatedBy = req.user.id;
+    await settings.save();
+
+    // Audit log
+    await AuditLog.create({
+      user: req.user.id,
+      action: 'UPDATE_SETTINGS',
+      target: settings._id,
+      targetModel: 'ClinicSetting',
+      details: { updatedFields: Object.keys(req.body) }
+    });
+
+    res.json(settings);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ===== ADD HOLIDAY =====
+exports.addHoliday = async (req, res) => {
+  try {
+    const { date, reason } = req.body;
+
+    let settings = await ClinicSetting.findOne();
+    if (!settings) {
+      settings = new ClinicSetting();
+    }
+
+    settings.holidays.push({ date: new Date(date), reason });
+    await settings.save();
+
+    res.json(settings);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ===== REMOVE HOLIDAY =====
+exports.removeHoliday = async (req, res) => {
+  try {
+    const { holidayId } = req.params;
+
+    const settings = await ClinicSetting.findOne();
+    if (!settings) {
+      return res.status(404).json({ error: "Settings not found" });
+    }
+
+    settings.holidays = settings.holidays.filter(h => h._id.toString() !== holidayId);
+    await settings.save();
+
+    res.json(settings);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };

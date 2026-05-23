@@ -3,21 +3,25 @@ const User = require('../models/auth/User');
 require("dotenv").config();
 
 exports.verifyToken = async (req, res, next) => {
+  // First try to get token from cookie
+  let token = req.cookies?.token;
+  
+  // If no cookie token, check Authorization header
   const authHeader = req.headers.authorization;
+  if (!token && authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  }
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!token) {
     return res.status(401).json({
       success: false,
       message: "Access denied. No token provided."
     });
   }
 
-  const token = authHeader.split(" ")[1];
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Fetch full user details with role
     const user = await User.findById(decoded.id)
       .populate('roleId')
       .select('-password');
@@ -29,7 +33,6 @@ exports.verifyToken = async (req, res, next) => {
       });
     }
 
-    // Check if user is active
     if (user.status === 'inactive') {
       return res.status(403).json({
         success: false,
@@ -37,7 +40,6 @@ exports.verifyToken = async (req, res, next) => {
       });
     }
 
-    // Check if account is locked
     if (user.isLocked) {
       return res.status(403).json({
         success: false,
@@ -45,7 +47,6 @@ exports.verifyToken = async (req, res, next) => {
       });
     }
 
-    // Attach enhanced user info to request
     req.user = {
       id: user._id,
       name: user.name,
@@ -57,6 +58,13 @@ exports.verifyToken = async (req, res, next) => {
       status: user.status
     };
     
+    console.log('✅ Token verified for user:', user.name);
+    console.log('   roleId object:', user.roleId);
+    console.log('   roleId.roleName:', user.roleId?.roleName);
+    console.log('   decoded.role:', decoded.role);
+    console.log('   Final role in req.user:', req.user.role);
+    console.log('   USER OBJECT:', JSON.stringify(req.user, null, 2));
+    
     next();
 
   } catch (err) {
@@ -66,3 +74,21 @@ exports.verifyToken = async (req, res, next) => {
     });
   }
 };
+
+// ✅ Admin check - simple and effective
+const isAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(403).json({ error: 'Access denied. Not authenticated.' });
+  }
+  
+  // Check if role contains 'admin' (case-insensitive)
+  const role = (req.user?.role || '').toString().toLowerCase();
+  if (role.includes('admin')) {
+    return next();
+  }
+  
+  res.status(403).json({ error: 'Access denied. Admin only.' });
+};
+
+// ✅ UPDATE EXPORTS
+module.exports = { verifyToken: exports.verifyToken, isAdmin };

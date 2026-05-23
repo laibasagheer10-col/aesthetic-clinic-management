@@ -12,8 +12,8 @@ const InventoryLogSchema = new Schema({
     type: Number, 
     required: true 
   },
-  previousQuantity: { type: Number },
-  newQuantity: { type: Number },
+  previousQuantity: { type: Number, default: 0 },
+  newQuantity: { type: Number, default: 0 },
   type: { 
     type: String, 
     enum: ['Added', 'Used', 'Expired', 'Adjusted', 'Purchased'], 
@@ -21,12 +21,13 @@ const InventoryLogSchema = new Schema({
   },
   reference: { type: String },
   supplierId: { type: Schema.Types.ObjectId, ref: 'Supplier' },
+  purchasePrice: { type: Number, default: 0 },
+  totalCost: { type: Number, default: 0 },
   updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   notes: { type: String },
   date: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-// Index for faster queries
 InventoryLogSchema.index({ productId: 1, date: -1 });
 InventoryLogSchema.index({ supplierId: 1, date: -1 });
 InventoryLogSchema.index({ type: 1 });

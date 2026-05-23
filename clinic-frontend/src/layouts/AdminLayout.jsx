@@ -1,20 +1,30 @@
 import { Outlet, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import "./admin.css";
-import NotificationBell from "../components/admin/NotificationBell";
 import api from "../services/api";
 import toast from "react-hot-toast";
+import NotificationBell from "../components/common/NotificationBell";
 
 function AdminLayout() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [contentDropdownOpen, setContentDropdownOpen] = useState(false);
 
   useEffect(() => {
-    const userData = localStorage.getItem("user");
+    const userData = localStorage.getItem("user") || sessionStorage.getItem("user");
     if (userData) setUser(JSON.parse(userData));
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const handleLogout = async () => {
@@ -22,6 +32,8 @@ function AdminLayout() {
       await api.post("/auth/logout");
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("user");
       toast.success("Logged out successfully");
       navigate("/login");
     } catch {
@@ -47,173 +59,111 @@ function AdminLayout() {
   ];
 
   return (
-    <div className={`layout ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-
-      {/* SIDEBAR */}
-      <motion.div
-        className="sidebar"
-        initial={{ x: -250 }}
-        animate={{ x: 0 }}
-        style={{
-          width: sidebarCollapsed ? "80px" : "280px",
-          height: "100vh",
-          position: "fixed",
-          background: "#1a1f3c",
-          color: "white",
-          display: "flex",
-          flexDirection: "column"
-        }}
+    <div className="admin-layout-container">
+      {/* Mobile Menu Toggle Button */}
+      <button 
+        className="mobile-menu-toggle-btn"
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
       >
+        {mobileMenuOpen ? '✕' : '☰'}
+      </button>
 
-        {/* HEADER */}
-        <div style={{
-          padding: "20px",
-          display: "flex",
-          justifyContent: "space-between",
-          borderBottom: "1px solid rgba(255,255,255,0.1)"
-        }}>
+      {/* Overlay */}
+      {mobileMenuOpen && (
+        <div className="mobile-menu-overlay" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
+      {/* Sidebar */}
+      <div 
+        className={`admin-sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileMenuOpen ? 'mobile-open' : ''}`}
+      >
+        {/* Sidebar Header */}
+        <div className="admin-sidebar-header">
           {!sidebarCollapsed && (
-            <div>
-              <h2 style={{ margin: 0 }}>Clinic Admin</h2>
-
+            <div className="admin-sidebar-brand">
+              <h2>Clinic Admin</h2>
               {user && (
-                <div style={{ marginTop: "5px" }}>
-                  <div style={{ fontSize: "13px" }}>{user.name}</div>
-                  <div style={{ fontSize: "11px", opacity: 0.7 }}>{user.role}</div>
+                <div className="admin-sidebar-user">
+                  <div className="admin-sidebar-name">{user.name}</div>
+                  <div className="admin-sidebar-role">{user.role}</div>
                 </div>
               )}
             </div>
           )}
-
-          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
-            {sidebarCollapsed ? "→" : "←"}
-          </button>
-        </div>
-
-        {/* NAVIGATION */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "10px" }}>
-          <nav>
-
-            {navItems.map(item => (
-              <Link key={item.path} to={item.path} className="nav-link"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "15px",
-                  padding: "12px 15px",
-                  borderRadius: "8px",
-                  marginBottom: "5px",
-                  color: "white",
-                  textDecoration: "none",
-                  justifyContent: sidebarCollapsed ? "center" : "flex-start"
-                }}>
-                <span>{item.icon}</span>
-                {!sidebarCollapsed && item.label}
-              </Link>
-            ))}
-
-            {/* CONTENT DROPDOWN */}
-            <div
-              onClick={() => !sidebarCollapsed && setContentDropdownOpen(!contentDropdownOpen)}
-              className="nav-link"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "15px",
-                padding: "12px 15px",
-                borderRadius: "8px",
-                marginBottom: "5px",
-                cursor: "pointer",
-                justifyContent: sidebarCollapsed ? "center" : "flex-start"
-              }}
-            >
-              <span>📋</span>
-              {!sidebarCollapsed && (
-                <>
-                  <span>Content</span>
-                  <span style={{ marginLeft: "auto" }}>
-                    {contentDropdownOpen ? "▼" : "▶"}
-                  </span>
-                </>
-              )}
-            </div>
-
-            {contentDropdownOpen && !sidebarCollapsed && (
-              <div style={{ paddingLeft: "20px" }}>
-                {contentItems.map(item => (
-                  <Link key={item.path} to={item.path} className="nav-link"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      padding: "10px 15px",
-                      borderRadius: "8px",
-                      marginBottom: "3px",
-                      color: "white",
-                      textDecoration: "none",
-                      fontSize: "13px",
-                      opacity: 0.9
-                    }}>
-                    {item.icon} {item.label}
-                  </Link>
-                ))}
-              </div>
-            )}
-
-          </nav>
-        </div>
-
-        {/* LOGOUT */}
-        <div style={{
-          padding: "15px",
-          borderTop: "1px solid rgba(255,255,255,0.1)"
-        }}>
-          <button
-            onClick={handleLogout}
-            style={{
-              width: "100%",
-              padding: "12px",
-              fontWeight: "bold",
-              background: "rgba(255,255,255,0.1)",
-              border: "none",
-              color: "white",
-              borderRadius: "8px",
-              cursor: "pointer"
-            }}
+          <button 
+            className="sidebar-collapse-btn"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           >
-            🚪 {!sidebarCollapsed && "Logout"}
+            {sidebarCollapsed ? '→' : '←'}
           </button>
         </div>
 
-      </motion.div>
+        {/* Navigation */}
+        <div className="admin-sidebar-nav">
+          {navItems.map(item => (
+            <Link 
+              key={item.path} 
+              to={item.path} 
+              className="admin-nav-link"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <span className="admin-nav-icon">{item.icon}</span>
+              {!sidebarCollapsed && <span className="admin-nav-label">{item.label}</span>}
+            </Link>
+          ))}
 
-      {/* MAIN */}
-      <div className="main" style={{
-        marginLeft: sidebarCollapsed ? "80px" : "280px",
-        background: "#f5f7fa",
-        minHeight: "100vh"
-      }}>
+          {/* Content Dropdown */}
+          <div
+            onClick={() => !sidebarCollapsed && setContentDropdownOpen(!contentDropdownOpen)}
+            className={`admin-nav-link dropdown-trigger ${contentDropdownOpen ? 'active' : ''}`}
+          >
+            <span className="admin-nav-icon">📋</span>
+            {!sidebarCollapsed && (
+              <>
+                <span className="admin-nav-label">Content</span>
+                <span className="dropdown-arrow">{contentDropdownOpen ? '▼' : '▶'}</span>
+              </>
+            )}
+          </div>
 
-        {/* HEADER */}
-        <div style={{
-          background: "white",
-          padding: "15px 30px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center"
-        }}>
-          <span>
+          {contentDropdownOpen && !sidebarCollapsed && (
+            <div className="admin-dropdown-menu">
+              {contentItems.map(item => (
+                <Link 
+                  key={item.path} 
+                  to={item.path} 
+                  className="admin-nav-link dropdown-item"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <span className="admin-nav-icon-small">{item.icon}</span>
+                  <span className="admin-nav-label">{item.label}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Logout Button */}
+        <div className="admin-sidebar-footer">
+          <button className="admin-logout-btn" onClick={handleLogout}>
+            <span>🚪</span>
+            {!sidebarCollapsed && <span>Logout</span>}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className={`admin-main-content ${sidebarCollapsed ? 'content-collapsed' : ''}`}>
+        <div className="admin-top-bar">
+          <div className="admin-welcome">
             Welcome back, <b>{user?.name || "Admin"}</b>
-          </span>
-
+          </div>
+          {/* ✅ NotificationBell added correctly */}
           <NotificationBell />
         </div>
-
-        {/* CONTENT */}
-        <div style={{ padding: "25px" }}>
+        <div className="admin-page-content">
           <Outlet />
         </div>
-
       </div>
     </div>
   );

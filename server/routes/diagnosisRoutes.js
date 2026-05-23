@@ -161,4 +161,98 @@ router.get('/files/check/:type/:filename', async (req, res) => {
   }
 });
 
+// 🔨 Seed endpoint - Create essential data for testing
+router.post('/seed', async (req, res) => {
+  try {
+    const Role = require('../models/auth/Role');
+    const User = require('../models/auth/User');
+    const Service = require('../models/Service');
+    const bcrypt = require('bcryptjs');
+
+    // 1. Create Roles
+    let doctorRole = await Role.findOne({ roleName: 'Doctor' });
+    if (!doctorRole) {
+      doctorRole = await Role.create({
+        roleName: 'Doctor',
+        permissions: ['view_dashboard', 'manage_appointments', 'view_appointments'],
+        description: 'Medical staff who performs treatments',
+        level: 5
+      });
+    }
+
+    let patientRole = await Role.findOne({ roleName: 'Patient' });
+    if (!patientRole) {
+      patientRole = await Role.create({
+        roleName: 'Patient',
+        permissions: ['view_dashboard', 'view_appointments'],
+        description: 'Registered patient',
+        level: 1
+      });
+    }
+
+    // 2. Create a Test Doctor if none exists
+    const existingDoctor = await User.findOne({ email: 'doctor@example.com' });
+    if (!existingDoctor) {
+      const hashedPassword = await bcrypt.hash('123456', 10);
+      await User.create({
+        name: 'Hira',
+        email: 'doctor@example.com',
+        password: hashedPassword,
+        phone: '03001234567',
+        roleId: doctorRole._id,
+        status: 'active',
+        department: 'Medical'
+      });
+    }
+
+    // 3. Create Sample Services if none exist
+    const serviceCount = await Service.countDocuments();
+    if (serviceCount === 0) {
+      await Service.create([
+        {
+          name: 'Hydra Facial',
+          description: 'Deep cleansing and hydration for glowing skin.',
+          price: 4500,
+          duration: '45 mins',
+          icon: '💧',
+          category: 'Facial',
+          isActive: true,
+          order: 1
+        },
+        {
+          name: 'Laser Hair Removal',
+          description: 'Permanent hair reduction for smooth skin.',
+          price: 8000,
+          duration: '60 mins',
+          icon: '⚡',
+          category: 'Laser',
+          isActive: true,
+          order: 2
+        },
+        {
+          name: 'Acne Treatment',
+          description: 'Professional treatment to clear acne and prevent scarring.',
+          price: 3500,
+          duration: '30 mins',
+          icon: '🛡️',
+          category: 'Treatment',
+          isActive: true,
+          order: 3
+        }
+      ]);
+    }
+
+    res.json({
+      success: true,
+      message: '✅ Seed data created successfully! Doctors and Services should now appear.',
+      roles: { doctor: !!doctorRole, patient: !!patientRole },
+      newDoctorCreated: !existingDoctor,
+      servicesCreated: serviceCount === 0 ? 3 : 0
+    });
+  } catch (error) {
+    console.error('Seed error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

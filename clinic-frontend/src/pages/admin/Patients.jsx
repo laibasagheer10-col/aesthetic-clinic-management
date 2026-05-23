@@ -21,9 +21,19 @@ function Patients() {
   const fetchPatients = async () => {
     try {
       const res = await api.get("/patients");
+      console.log('📊 Fetched patients:', res.data.length, 'records');
+      // Log patient timestamps for debugging
+      if (res.data && res.data.length > 0) {
+        console.log('Sample patient:', {
+          name: res.data[0].name,
+          createdAt: res.data[0].createdAt,
+          updatedAt: res.data[0].updatedAt
+        });
+      }
       setPatients(res.data);
     } catch (error) {
       toast.error("Failed to fetch patients");
+      console.error('Patient fetch error:', error);
     }
   };
 
@@ -55,19 +65,29 @@ function Patients() {
 
     // Apply date filters
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
     
     if (filterType === 'recent') {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(today.getDate() - 7);
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       
       filtered = filtered.filter(p => {
+        // Handle patients without createdAt (legacy records)
+        if (!p.createdAt) {
+          return false;
+        }
         const createdAt = new Date(p.createdAt);
+        createdAt.setHours(0, 0, 0, 0); // Reset time to start of day
         return createdAt >= sevenDaysAgo;
       });
     }
     
     if (filterType === 'month') {
       filtered = filtered.filter(p => {
+        // Handle patients without createdAt (legacy records)
+        if (!p.createdAt) {
+          return false;
+        }
         const createdAt = new Date(p.createdAt);
         return createdAt.getMonth() === today.getMonth() &&
                createdAt.getFullYear() === today.getFullYear();
@@ -107,6 +127,30 @@ function Patients() {
     setFilterType('all');
     setCurrentPage(1);
     toast.success("Filters cleared");
+  };
+
+  // Helper to count recent patients (last 7 days)
+  const getRecentCount = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return patients.filter(p => {
+      if (!p.createdAt) return false;
+      const createdAt = new Date(p.createdAt);
+      createdAt.setHours(0, 0, 0, 0);
+      return createdAt >= sevenDaysAgo;
+    }).length;
+  };
+
+  // Helper to count this month's patients
+  const getMonthCount = () => {
+    const today = new Date();
+    return patients.filter(p => {
+      if (!p.createdAt) return false;
+      const createdAt = new Date(p.createdAt);
+      return createdAt.getMonth() === today.getMonth() && createdAt.getFullYear() === today.getFullYear();
+    }).length;
   };
 
   return (

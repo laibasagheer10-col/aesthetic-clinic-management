@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import Charts from "../../components/admin/Charts";
 import "./Dashboard.css";
 import { useNavigate } from "react-router-dom";
-import notificationService from "../../services/notificationService";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -22,10 +21,9 @@ function Dashboard() {
     charts: {}
   });
 
-  // 🔥 LOW STOCK STATE
   const [lowStockItems, setLowStockItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [doctorCount, setDoctorCount] = useState(1); // Changed from 5 to 1
+  const [doctorCount, setDoctorCount] = useState(1);
 
   const fetchData = async () => {
     try {
@@ -40,29 +38,26 @@ function Dashboard() {
     }
   };
 
-  // 🔥 FETCH LOW STOCK ITEMS
+  // ✅ FETCH LOW STOCK ITEMS - FIXED (removed notification generate call)
   const fetchLowStock = async () => {
     try {
       const res = await api.get("/inventory");
-      const lowStock = res.data.filter(item => item.quantity < 10);
+      // ✅ FIXED: Use stockQuantity field (matching your inventory model)
+      const lowStock = res.data.filter(item => 
+        (item.stockQuantity || 0) < (item.lowStockAlert || 10)
+      );
       setLowStockItems(lowStock);
-      
-      // Create notification for low stock
-      if (lowStock.length > 0 && !data.alerts?.some(alert => alert.includes('low stock'))) {
-        await api.post('/notifications/generate');
-      }
     } catch (error) {
-      console.error("Failed to fetch inventory");
+      console.error("Failed to fetch inventory:", error);
     }
   };
 
-  // 🔥 FETCH TODAY'S APPOINTMENTS COUNT
   const fetchTodayAppointments = async () => {
     try {
       const res = await api.get("/appointments");
       const today = new Date().toDateString();
       const todayApps = res.data.filter(app => 
-        new Date(app.date).toDateString() === today
+        new Date(app.appointmentDate).toDateString() === today
       );
       
       if (todayApps.length > 0) {
@@ -72,7 +67,7 @@ function Dashboard() {
         });
       }
     } catch (error) {
-      console.error("Failed to fetch appointments");
+      console.error("Failed to fetch appointments:", error);
     }
   };
 
@@ -81,20 +76,15 @@ function Dashboard() {
     fetchLowStock();
     fetchTodayAppointments();
 
-    // Generate initial notifications
-    notificationService.generateSystemNotifications();
-
-    // Auto-refresh every 30 seconds
+    // ✅ Auto-refresh every 30 seconds (no generateSystemNotifications)
     const interval = setInterval(() => {
       fetchData();
       fetchLowStock();
-      notificationService.fetchUnreadCount();
     }, 30000);
     
     return () => clearInterval(interval);
   }, []);
 
-  // ✅ PKR CURRENCY FORMAT
   const formatPKR = (value) => {
     if (value === undefined || value === null) return "₨0";
     return `₨${value.toLocaleString()}`;
@@ -125,7 +115,7 @@ function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      {/* 🔹 WELCOME SECTION */}
+      {/* WELCOME SECTION */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -143,7 +133,7 @@ function Dashboard() {
         </p>
       </motion.div>
 
-      {/* 🔥 Date & Time Display */}
+      {/* Date & Time Display */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -183,7 +173,7 @@ function Dashboard() {
         </div>
       </motion.div>
 
-      {/* 🔹 TOP CARDS - With PKR currency */}
+      {/* TOP CARDS */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -224,7 +214,6 @@ function Dashboard() {
             icon: "📉",
             change: "Monthly expenses"
           },
-          // Pending Approvals Card
           { 
             title: "Pending Approvals", 
             value: data.appointments?.filter(a => a.status === 'Pending').length || 0, 
@@ -261,7 +250,7 @@ function Dashboard() {
         ))}
       </motion.div>
 
-      {/* 🔥 Quick Stats Summary - REMOVED ACTION BUTTONS */}
+      {/* Quick Stats Summary */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -308,7 +297,7 @@ function Dashboard() {
             <small style={{ color: '#666' }}>Today's Revenue (Est.)</small>
             <h3 style={{ margin: 0, color: '#4CAF50' }}>
               {formatPKR(data.appointments
-                ?.filter(a => new Date(a.date).toDateString() === new Date().toDateString())
+                ?.filter(a => new Date(a.appointmentDate).toDateString() === new Date().toDateString())
                 .length * 2000 || 0)}
             </h3>
           </div>
@@ -326,12 +315,12 @@ function Dashboard() {
           <span style={{ fontSize: '24px' }}>👨‍⚕️</span>
           <div>
             <small style={{ color: '#666' }}>Available Doctors</small>
-            <h3 style={{ margin: 0, color: '#FF9800' }}>{doctorCount}</h3> {/* Changed from 5 to doctorCount state */}
+            <h3 style={{ margin: 0, color: '#FF9800' }}>{doctorCount}</h3>
           </div>
         </div>
       </motion.div>
 
-      {/* 🔥 LOW STOCK ALERT SECTION - With PKR in tooltips if needed */}
+      {/* ✅ FIXED LOW STOCK ALERT - Uses correct field names */}
       {lowStockItems.length > 0 && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -380,9 +369,9 @@ function Dashboard() {
                 }}
               >
                 <div>
-                  <strong style={{ fontSize: '16px' }}>{item.name || item.productName}</strong>
+                  <strong style={{ fontSize: '16px' }}>{item.productName || item.name}</strong>
                   <div style={{ fontSize: "13px", color: "#666", marginTop: '4px' }}>
-                    Current Stock: <span style={{ fontWeight: 'bold', color: '#f44336' }}>{item.quantity || item.stockQuantity}</span>
+                    Current Stock: <span style={{ fontWeight: 'bold', color: '#f44336' }}>{item.stockQuantity || item.quantity}</span>
                   </div>
                 </div>
                 <span style={{
@@ -429,7 +418,7 @@ function Dashboard() {
         </motion.div>
       )}
 
-      {/* 🔹 MIDDLE SECTION - APPOINTMENTS & PATIENTS */}
+      {/* APPOINTMENTS & PATIENTS */}
       <div style={{ 
         display: "grid", 
         gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", 
@@ -468,7 +457,7 @@ function Dashboard() {
                   fontWeight: "bold"
                 }}
               >
-                {data.appointments.length} Total
+                {data.appointments?.length || 0} Total
               </motion.span>
               <motion.button
                 whileHover={{ x: 3 }}
@@ -487,7 +476,7 @@ function Dashboard() {
             </div>
           </div>
 
-          {data.appointments.length > 0 ? (
+          {data.appointments?.length > 0 ? (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
@@ -503,13 +492,11 @@ function Dashboard() {
                       key={a._id} 
                       whileHover={{ backgroundColor: '#f9f9f9' }}
                       style={{ borderBottom: "1px solid #eee", cursor: 'pointer' }}
-                      onClick={() => navigate(`/admin/appointments/${a._id}`)}
+                      onClick={() => navigate(`/admin/appointments`)}
                     >
-                      <td style={{ padding: "12px 0", fontWeight: '500' }}>{a.patientName || "Unknown"}</td>
+                      <td style={{ padding: "12px 0", fontWeight: '500' }}>{a.patientName || a.customerName || "Unknown"}</td>
                       <td style={{ padding: "12px 0", color: '#666' }}>
-                        {a.date ? new Date(a.date).toLocaleDateString() : "N/A"}
-                        <br />
-                        <small>{a.date ? new Date(a.date).toLocaleTimeString() : ""}</small>
+                        {a.appointmentDate ? new Date(a.appointmentDate).toLocaleDateString() : "N/A"}
                       </td>
                       <td style={{ padding: "12px 0" }}>
                         <span style={{
@@ -519,10 +506,12 @@ function Dashboard() {
                           fontWeight: "bold",
                           background: a.status === "Completed" ? "#e8f5e8" : 
                                       a.status === "Pending" ? "#fff3e0" : 
-                                      a.status === "Cancelled" ? "#ffebee" : "#e3f2fd",
+                                      a.status === "Cancelled" ? "#ffebee" : 
+                                      a.status === "Confirmed" ? "#e3f2fd" : "#f5f5f5",
                           color: a.status === "Completed" ? "#4CAF50" : 
                                  a.status === "Pending" ? "#FF9800" : 
-                                 a.status === "Cancelled" ? "#f44336" : "#2196F3"
+                                 a.status === "Cancelled" ? "#f44336" : 
+                                 a.status === "Confirmed" ? "#2196F3" : "#999"
                         }}>
                           {a.status || "Pending"}
                         </span>
@@ -571,11 +560,11 @@ function Dashboard() {
                 fontWeight: "bold"
               }}
             >
-              {data.patients.length} Total
+              {data.patients?.length || 0} Total
             </motion.span>
           </div>
 
-          {data.patients.length > 0 ? (
+          {data.patients?.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               {data.patients.slice(0, 5).map(p => (
                 <motion.div 
@@ -590,7 +579,7 @@ function Dashboard() {
                     borderRadius: "10px",
                     cursor: 'pointer'
                   }}
-                  onClick={() => navigate(`/admin/patients/${p._id}`)}
+                  onClick={() => navigate(`/admin/patients`)}
                 >
                   <div>
                     <p style={{ margin: "0", fontWeight: "600", fontSize: '16px' }}>{p.name || "Unknown"}</p>
@@ -619,7 +608,7 @@ function Dashboard() {
         </motion.div>
       </div>
 
-      {/* 🔹 CHARTS */}
+      {/* CHARTS */}
       {data.charts && Object.keys(data.charts).length > 0 && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -631,7 +620,7 @@ function Dashboard() {
         </motion.div>
       )}
 
-      {/* 🔹 ALERTS SECTION */}
+      {/* ALERTS SECTION */}
       {(data.alerts && data.alerts.length > 0) && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}

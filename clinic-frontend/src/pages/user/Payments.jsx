@@ -1,364 +1,328 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import toast from "react-hot-toast";
-import "./user.css";
 
 function Payments() {
-  const navigate = useNavigate();
   const [payments, setPayments] = useState([]);
-  const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("All");
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
-  const paymentMethods = ["Card", "Cash", "Easypaisa", "JazzCash"];
-  const statuses = ["All", "Success", "Pending", "Failed"];
+  const statuses = ["All", "Approved", "Pending"];
 
   useEffect(() => {
-    fetchPaymentData();
+    fetchPayments();
   }, []);
 
-  const fetchPaymentData = async () => {
+  const fetchPayments = async () => {
     try {
       setLoading(true);
-      const user = JSON.parse(localStorage.getItem("user"));
-
-      // Fetch payments
-      const paymentsRes = await api.get("/payments");
-      const userPayments = paymentsRes.data.filter(
-        (p) => p.patientId?._id === user.id || p.patientId === user.id
-      );
-      setPayments(userPayments);
-
-      // Fetch unpaid appointments
-      const appointmentsRes = await api.get("/appointments");
-      const unpaidAppointments = appointmentsRes.data.filter(
-        (a) =>
-          (a.patientId?._id === user.id || a.patientId === user.id) &&
-          a.paymentStatus === "Unpaid" &&
-          a.status !== "Cancelled"
-      );
-      setAppointments(unpaidAppointments);
+      const res = await api.get("/payments/my-payments");
+      setPayments(res.data || []);
     } catch (error) {
-      toast.error("Failed to load payment data");
-      console.error("Error:", error);
+      console.error("Failed to fetch payments:", error);
+      toast.error("Failed to load payment history");
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePaymentSubmit = async (e, appointmentId) => {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const paymentData = {
-      appointmentId: appointmentId,
-      patientId: JSON.parse(localStorage.getItem("user")).id,
-      amount: parseFloat(formData.get("amount")),
-      paymentMethod: formData.get("method"),
-      transactionId: formData.get("transactionId") || "",
-      status: "Pending",
-    };
-
+  const handleViewInvoice = async (paymentId) => {
     try {
-      await api.post("/payments", paymentData);
-      toast.success("Payment recorded successfully!");
-      setShowPaymentForm(false);
-      setSelectedAppointment(null);
-      fetchPaymentData();
+      console.log("Fetching invoice for payment:", paymentId);
+      const response = await api.get(`/invoices/payment/${paymentId}`);
+      console.log("Invoice response:", response.data);
+      
+      if (response.data) {
+        setSelectedInvoice(response.data);
+        setShowInvoiceModal(true);
+      } else {
+        toast.error("No invoice found for this payment");
+      }
     } catch (error) {
-      toast.error("Failed to process payment");
-      console.error("Error:", error);
+      console.error("Invoice fetch error:", error);
+      toast.error(error.response?.data?.error || "Failed to load invoice");
     }
   };
-
-  const filteredPayments = payments.filter((payment) => {
-    if (filterStatus === "All") return true;
-    return payment.status === filterStatus;
-  });
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "Success":
-        return "#4CAF50";
-      case "Pending":
-        return "#FF9800";
-      case "Failed":
-        return "#f44336";
-      default:
-        return "#666";
+      case "Approved": return "#4CAF50";
+      case "Pending": return "#FF9800";
+      default: return "#999";
     }
   };
 
-  const getTotalAmount = () => {
-    return payments
-      .filter((p) => p.status === "Success")
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const getStatusBg = (status) => {
+    switch (status) {
+      case "Approved": return "#e8f5e9";
+      case "Pending": return "#fff3e0";
+      default: return "#f5f5f5";
+    }
   };
 
-  const getPendingAmount = () => {
-    return payments
-      .filter((p) => p.status === "Pending")
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
-  };
+  const filteredPayments = payments.filter(
+    p => filterStatus === "All" || p.status === filterStatus
+  );
+  
+  const totalPaid = payments
+    .filter(p => p.status === "Approved")
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loader"></div>
-      </div>
-    );
-  }
+  const handlePrintInvoice = () => {
+    const printContent = document.getElementById("invoice-print-content");
+    if (!printContent) return;
+    
+    const originalContent = document.body.innerHTML;
+    document.body.innerHTML = printContent.innerHTML;
+    window.print();
+    document.body.innerHTML = originalContent;
+    window.location.reload();
+  };
 
   return (
-    <motion.div
-      className="payments-page"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-    >
-      <div className="page-header">
-        <h1>💰 Payments</h1>
-      </div>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
+      
+      <h1 style={{ marginBottom: "20px" }}>💰 Payment History</h1>
 
-      {/* Payment Summary Cards */}
-      <div className="payment-summary">
-        <motion.div
-          className="summary-card"
-          whileHover={{ scale: 1.02 }}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-        >
-          <div className="summary-icon">📊</div>
-          <div className="summary-content">
-            <label>Total Paid</label>
-            <h3>PKR {getTotalAmount().toLocaleString("en-PK")}</h3>
-          </div>
-        </motion.div>
-
-        <motion.div
-          className="summary-card warning"
-          whileHover={{ scale: 1.02 }}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <div className="summary-icon">⏳</div>
-          <div className="summary-content">
-            <label>Pending Amount</label>
-            <h3>PKR {getPendingAmount().toLocaleString("en-PK")}</h3>
-          </div>
-        </motion.div>
-
-        <motion.div
-          className="summary-card"
-          whileHover={{ scale: 1.02 }}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <div className="summary-icon">📈</div>
-          <div className="summary-content">
-            <label>Total Transactions</label>
-            <h3>{payments.length}</h3>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* New Payment Section */}
-      {appointments.length > 0 && !showPaymentForm && (
-        <motion.div
-          className="new-payment-section"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h3>📝 Unpaid Appointments</h3>
-          <div className="unpaid-list">
-            {appointments.map((apt) => (
-              <motion.div
-                key={apt._id}
-                className="unpaid-item"
-                whileHover={{ scale: 1.02 }}
-              >
-                <div className="unpaid-info">
-                  <p>
-                    <strong>
-                      {new Date(apt.appointmentDate).toLocaleDateString("en-PK")}
-                    </strong>
-                  </p>
-                  <p className="doctor-name">Dr. {apt.doctorId?.name || "Staff"}</p>
-                </div>
-                <motion.button
-                  className="pay-now-btn"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setSelectedAppointment(apt);
-                    setShowPaymentForm(true);
-                  }}
-                >
-                  Pay Now
-                </motion.button>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Payment Form */}
-      {showPaymentForm && selectedAppointment && (
-        <motion.div
-          className="payment-form-section"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h3>Make Payment</h3>
-          <form
-            onSubmit={(e) => handlePaymentSubmit(e, selectedAppointment._id)}
-            className="payment-form"
-          >
-            <div className="appointment-summary-form">
-              <p>
-                <strong>Appointment Date:</strong>{" "}
-                {new Date(selectedAppointment.appointmentDate).toLocaleDateString(
-                  "en-PK"
-                )}
-              </p>
-              <p>
-                <strong>Doctor:</strong> Dr. {selectedAppointment.doctorId?.name || "Staff"}
-              </p>
-            </div>
-
-            <div className="form-group">
-              <label>Amount (PKR)</label>
-              <input
-                type="number"
-                name="amount"
-                placeholder="Enter amount"
-                required
-                step="0.01"
-                min="0"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Payment Method</label>
-              <select name="method" required>
-                <option value="">Select Payment Method</option>
-                {paymentMethods.map((method) => (
-                  <option key={method} value={method}>
-                    {method}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Transaction ID (if applicable)</label>
-              <input
-                type="text"
-                name="transactionId"
-                placeholder="e.g., TXN123456"
-              />
-            </div>
-
-            <div className="form-actions">
-              <motion.button
-                type="submit"
-                className="submit-btn"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Confirm Payment
-              </motion.button>
-              <motion.button
-                type="button"
-                className="cancel-btn"
-                onClick={() => {
-                  setShowPaymentForm(false);
-                  setSelectedAppointment(null);
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Cancel
-              </motion.button>
-            </div>
-          </form>
-        </motion.div>
-      )}
-
-      {/* Payment History Filter */}
-      <div className="payment-history-section">
-        <h3>📜 Payment History</h3>
-
-        {/* Filter Tabs */}
-        <div className="filter-tabs">
-          {statuses.map((status) => (
-            <motion.button
-              key={status}
-              className={`filter-tab ${filterStatus === status ? "active" : ""}`}
-              onClick={() => setFilterStatus(status)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {status}
-              <span className="count">
-                {status === "All"
-                  ? payments.length
-                  : payments.filter((p) => p.status === status).length}
-              </span>
-            </motion.button>
-          ))}
+      {/* Summary Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "20px", marginBottom: "30px" }}>
+        <div style={{ padding: "20px", background: "white", borderRadius: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+          <div style={{ fontSize: "14px", color: "#666" }}>Total Paid</div>
+          <div style={{ fontSize: "28px", fontWeight: "bold", color: "#4CAF50" }}>₨{totalPaid.toLocaleString()}</div>
         </div>
+        <div style={{ padding: "20px", background: "white", borderRadius: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+          <div style={{ fontSize: "14px", color: "#666" }}>Total Transactions</div>
+          <div style={{ fontSize: "28px", fontWeight: "bold", color: "#2A5CAA" }}>{payments.length}</div>
+        </div>
+      </div>
 
-        {/* Payments List */}
-        {filteredPayments.length > 0 ? (
-          <div className="payments-list">
-            {filteredPayments.map((payment, index) => (
-              <motion.div
-                key={payment._id}
-                className="payment-item"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <div className="payment-left">
-                  <div className="payment-date">
-                    {new Date(payment.paymentDate || payment.createdAt).toLocaleDateString(
-                      "en-PK"
+      {/* Filter Tabs */}
+      <div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
+        {statuses.map(status => (
+          <button
+            key={status}
+            onClick={() => setFilterStatus(status)}
+            style={{
+              padding: "8px 20px",
+              border: "none",
+              borderRadius: "20px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              background: filterStatus === status ? "#2A5CAA" : "#f0f0f0",
+              color: filterStatus === status ? "white" : "#333"
+            }}
+          >
+            {status} ({payments.filter(p => status === "All" || p.status === status).length})
+          </button>
+        ))}
+      </div>
+
+      {/* Payments List */}
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "40px" }}>Loading...</div>
+      ) : filteredPayments.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          {filteredPayments.map(payment => (
+            <motion.div
+              key={payment._id}
+              style={{
+                background: "white",
+                borderRadius: "12px",
+                padding: "20px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                borderLeft: `4px solid ${getStatusColor(payment.status)}`
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "15px" }}>
+                <div>
+                  <div style={{ fontWeight: "bold", fontSize: "16px" }}>
+                    {new Date(payment.paymentDate).toLocaleDateString('en-US', {
+                      year: 'numeric', month: 'long', day: 'numeric'
+                    })}
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#666", marginTop: "4px" }}>
+                    {payment.paymentMethod} • {payment.appointment?.serviceName || "Consultation"}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "22px", fontWeight: "bold", color: "#4CAF50" }}>
+                    ₨{payment.amount?.toLocaleString()}
+                  </div>
+                  <div style={{ marginTop: "8px" }}>
+                    <span style={{
+                      padding: "4px 12px",
+                      borderRadius: "20px",
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                      background: getStatusBg(payment.status),
+                      color: getStatusColor(payment.status)
+                    }}>
+                      {payment.status}
+                    </span>
+                    {payment.status === "Approved" && (
+                      <button
+                        onClick={() => handleViewInvoice(payment._id)}
+                        style={{
+                          marginLeft: "10px",
+                          padding: "6px 14px",
+                          background: "#2196F3",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "20px",
+                          cursor: "pointer",
+                          fontSize: "12px"
+                        }}
+                      >
+                        📄 View Invoice
+                      </button>
                     )}
                   </div>
-                  <div className="payment-details">
-                    <p className="method">{payment.paymentMethod}</p>
-                    <p className="transaction">{payment.transactionId || "N/A"}</p>
-                  </div>
                 </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: "center", padding: "60px", background: "#f9f9f9", borderRadius: "12px" }}>
+          <div style={{ fontSize: "48px", marginBottom: "10px" }}>💳</div>
+          <h3>No Payment History</h3>
+          <p>When your appointments are confirmed, payments will appear here.</p>
+        </div>
+      )}
 
-                <div className="payment-right">
-                  <div className="payment-amount">
-                    PKR {payment.amount?.toLocaleString("en-PK")}
-                  </div>
-                  <span
-                    className="payment-status"
-                    style={{ backgroundColor: getStatusColor(payment.status) }}
-                  >
-                    {payment.status}
-                  </span>
+      {/* Invoice Modal */}
+      {showInvoiceModal && selectedInvoice && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center",
+          justifyContent: "center", zIndex: 1000, padding: "20px"
+        }} onClick={() => setShowInvoiceModal(false)}>
+          <div style={{ 
+            background: "white", borderRadius: "16px", maxWidth: "600px", 
+            width: "100%", maxHeight: "90vh", overflow: "auto",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.2)"
+          }} onClick={e => e.stopPropagation()}>
+            
+            {/* Invoice Content for Printing */}
+            <div id="invoice-print-content" style={{ padding: "30px" }}>
+              {/* Header */}
+              <div style={{ textAlign: "center", marginBottom: "30px", borderBottom: "2px solid #eee", paddingBottom: "20px" }}>
+                <h2 style={{ margin: 0, color: "#2A5CAA" }}>Aesthetics Clinic</h2>
+                <p style={{ margin: "5px 0", color: "#666" }}>123 Healthcare Street, Lahore</p>
+                <p style={{ margin: 0, color: "#666" }}>Phone: +92 300 1234567</p>
+                <h3 style={{ margin: "15px 0 0", color: "#333" }}>INVOICE</h3>
+              </div>
+
+              {/* Invoice Details */}
+              <div style={{ marginBottom: "20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px", flexWrap: "wrap" }}>
+                  <div><strong>Invoice #:</strong> {selectedInvoice.invoiceNumber}</div>
+                  <div><strong>Date:</strong> {new Date(selectedInvoice.createdAt).toLocaleDateString()}</div>
                 </div>
-              </motion.div>
-            ))}
+                <div style={{ marginBottom: "10px" }}>
+                  <strong>Patient Name:</strong> {selectedInvoice.patientId?.name || "Patient"}
+                </div>
+                <div style={{ marginBottom: "10px" }}>
+                  <strong>Patient Phone:</strong> {selectedInvoice.patientId?.phone || "N/A"}
+                </div>
+                <div>
+                  <strong>Status:</strong> 
+                  <span style={{ color: "#4CAF50", marginLeft: "5px", fontWeight: "bold" }}>{selectedInvoice.status}</span>
+                </div>
+              </div>
+
+              {/* Invoice Items Table */}
+              <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
+                <thead>
+                  <tr style={{ background: "#f5f5f5", borderBottom: "2px solid #ddd" }}>
+                    <th style={{ padding: "10px", textAlign: "left" }}>Description</th>
+                    <th style={{ padding: "10px", textAlign: "right" }}>Qty</th>
+                    <th style={{ padding: "10px", textAlign: "right" }}>Unit Price</th>
+                    <th style={{ padding: "10px", textAlign: "right" }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedInvoice.items?.map((item, idx) => (
+                    <tr key={idx} style={{ borderBottom: "1px solid #eee" }}>
+                      <td style={{ padding: "10px" }}>{item.description}</td>
+                      <td style={{ padding: "10px", textAlign: "right" }}>{item.quantity}</td>
+                      <td style={{ padding: "10px", textAlign: "right" }}>₨{item.unitPrice?.toLocaleString()}</td>
+                      <td style={{ padding: "10px", textAlign: "right" }}>₨{item.total?.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  {selectedInvoice.subtotal > 0 && (
+                    <tr>
+                      <td colSpan="3" style={{ padding: "8px", textAlign: "right" }}>Subtotal:</td>
+                      <td style={{ padding: "8px", textAlign: "right" }}>₨{selectedInvoice.subtotal?.toLocaleString()}</td>
+                    </tr>
+                  )}
+                  {selectedInvoice.tax > 0 && (
+                    <tr>
+                      <td colSpan="3" style={{ padding: "8px", textAlign: "right" }}>Tax ({selectedInvoice.taxRate || 0}%):</td>
+                      <td style={{ padding: "8px", textAlign: "right" }}>₨{selectedInvoice.tax?.toLocaleString()}</td>
+                    </tr>
+                  )}
+                  {selectedInvoice.discount > 0 && (
+                    <tr>
+                      <td colSpan="3" style={{ padding: "8px", textAlign: "right" }}>Discount:</td>
+                      <td style={{ padding: "8px", textAlign: "right" }}>-₨{selectedInvoice.discount?.toLocaleString()}</td>
+                    </tr>
+                  )}
+                  <tr style={{ borderTop: "2px solid #ddd", fontWeight: "bold" }}>
+                    <td colSpan="3" style={{ padding: "10px", textAlign: "right", fontSize: "16px" }}>Total Amount:</td>
+                    <td style={{ padding: "10px", textAlign: "right", fontSize: "16px", color: "#4CAF50" }}>
+                      ₨{selectedInvoice.total?.toLocaleString()}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              {/* Footer */}
+              <div style={{ marginTop: "30px", textAlign: "center", fontSize: "12px", color: "#999", borderTop: "1px solid #eee", paddingTop: "20px" }}>
+                <p>Thank you for choosing Aesthetics Clinic!</p>
+                <p>For any queries, please contact us at support@aestheticsclinic.com</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ padding: "20px", borderTop: "1px solid #eee", display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+              <button
+                onClick={handlePrintInvoice}
+                style={{
+                  padding: "10px 20px",
+                  background: "#4CAF50",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                🖨️ Print Invoice
+              </button>
+              <button
+                onClick={() => setShowInvoiceModal(false)}
+                style={{
+                  padding: "10px 20px",
+                  background: "#f44336",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
-        ) : (
-          <div className="empty-state">
-            <div className="empty-icon">💳</div>
-            <h2>No Payment History</h2>
-            <p>You haven't made any payments yet.</p>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </motion.div>
   );
 }

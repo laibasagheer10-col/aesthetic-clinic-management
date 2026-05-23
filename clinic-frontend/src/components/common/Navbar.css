@@ -1,156 +1,198 @@
-/* Navbar Base - Always visible */
+/* =========================================
+   NAVBAR BASE - Fixed at top
+========================================= */
+
 .navbar {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   z-index: 9999;
-
   padding: 0.8rem 0;
-
-  /* 🔵 LIGHT BLUE GLASS STYLE */
   background: rgba(2, 2, 87, 0.85);
   backdrop-filter: blur(12px);
-
-  /* ✨ OUTLINE EFFECT */
   border: 1px solid rgba(42, 92, 170, 0.15);
-
   box-shadow: 0 4px 20px rgba(42, 92, 170, 0.08);
-
   transition: all 0.3s ease;
 }
 
-/* On Scroll - Enhanced shadow */
+/* Spacer to push content below fixed navbar */
+.navbar-spacer {
+  height: 70px;
+}
+
+/* On Scroll effect */
 .navbar.scrolled {
   background: #171616;
   box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
-  padding: 0.8rem 0;
+  padding: 0.5rem 0;
   border-bottom: 1px solid #2A5CAA;
 }
 
-/* Container */
+/* =========================================
+   CONTAINER - WIDTH LIMITED
+========================================= */
+
 .nav-container {
-  max-width: 1400px;
+  max-width: 1400px; /* Reduced from 1800px */
+  width: 100%;
   margin: 0 auto;
   padding: 0 2rem;
   display: flex;
-  border: 3px solid rgba(42, 92, 170, 0.15);
   justify-content: space-between;
   align-items: center;
 }
 
-/* Logo */
+/* =========================================
+   LOGO STYLING
+========================================= */
+
 .logo {
   text-decoration: none;
-  flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .logo-wrapper {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  cursor: pointer;
+  gap: 12px; /* Reduced from 14px */
+  padding: 4px 8px; /* Reduced from 6px 10px */
+  border-radius: 16px; /* Reduced from 18px */
+  transition: all 0.3s ease;
 }
 
-.logo-icon {
-  font-size: 3rem;
+.logo-wrapper:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.logo-icon-wrapper {
+  width: 48px; /* Reduced from 54px */
+  height: 48px; /* Reduced from 54px */
+  min-width: 48px; /* Reduced from 54px */
+  border-radius: 14px; /* Reduced from 16px */
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.15);
+  transition: all 0.3s ease;
+}
+
+.logo-wrapper:hover .logo-icon-wrapper {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.2);
+}
+
+.logo-icon-img {
+  width: 36px; /* Reduced from 40px */
+  height: 36px; /* Reduced from 40px */
+  object-fit: contain;
+  display: block;
 }
 
 .logo-text-wrapper {
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .logo-text-main {
-  font-size: 1rem;
+  font-size: 11px; /* Reduced from 13px */
   font-weight: 500;
-  color: #faf6f6;
+  color: rgba(255, 255, 255, 0.75);
   letter-spacing: 0.5px;
 }
 
 .logo-text-name {
-  font-size: 1.1rem;
+  font-size: 24px; /* Reduced from 28px */
   font-weight: 700;
   font-style: italic;
-  background: linear-gradient(135deg, #2A5CAA 0%, #667eea 100%);
+  background: linear-gradient(90deg, #ffffff, #9ec5ff);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: -0.3px;
-  white-space: nowrap;
+  letter-spacing: 0.3px;
 }
 
-/* Desktop Menu */
+/* =========================================
+   DESKTOP MENU - COMPACT
+========================================= */
+
 .nav-menu {
   display: flex;
-  gap: 1 rem;
+  gap: 1rem; /* Reduced from 1.5rem */
   align-items: center;
-  margin: 0 2rem;
+  margin: 0 1rem; /* Reduced from 2rem */
 }
 
-/* Nav Links - Default (Inactive) State */
+/* Nav Links */
 .nav-link {
   position: relative;
   text-decoration: none;
-  color: #1a202c;
+  color: #faf6f6;
   font-weight: 600;
-  font-size: 0.95rem;
-  letter-spacing: 0.5px;
+  font-size: 0.85rem; /* Reduced from 0.9rem */
+  letter-spacing: 0.3px; /* Reduced from 0.5px */
   padding: 0.5rem 0;
   transition: all 0.3s ease;
   display: inline-block;
   white-space: nowrap;
 }
 
-/* Hover effect */
 .nav-link:hover {
   color: #2A5CAA;
   transform: translateY(-2px);
 }
 
-/* Active Link State */
 .nav-link.active {
   color: #2A5CAA;
   font-weight: 700;
 }
 
-/* Active indicator - Underline for active link */
 .active-indicator {
   position: absolute;
   bottom: -2px;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 2px; /* Reduced from 3px */
   background: linear-gradient(90deg, #2A5CAA, #667eea);
   border-radius: 3px;
   box-shadow: 0 0 8px rgba(42, 92, 170, 0.4);
 }
 
-/* Nav Actions */
+/* =========================================
+   NAV ACTIONS & BUTTONS - COMPACT
+========================================= */
+
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem; /* Reduced from 1rem */
   flex-shrink: 0;
 }
 
-/* GET APPOINTMENT Button */
-.btn-appointment {
-  padding: 0.7rem 1.6rem;
-  background: linear-gradient(135deg, #2A5CAA 0%, #3d6cb5 100%);
-  color: white;
+/* Regular Buttons */
+.btn-appointment,
+.btn-login,
+.btn-logout {
+  padding: 0.5rem 1.2rem; /* Reduced from 0.6rem 1.4rem */
   border: none;
   border-radius: 50px;
-  font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: 0.5px;
+  font-weight: 600;
+  font-size: 0.8rem; /* Reduced from 0.85rem */
+  letter-spacing: 0.3px; /* Reduced from 0.5px */
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(42, 92, 170, 0.25);
   white-space: nowrap;
+}
+
+.btn-appointment {
+  background: linear-gradient(135deg, #2A5CAA 0%, #3d6cb5 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(42, 92, 170, 0.25);
 }
 
 .btn-appointment:hover {
@@ -159,11 +201,61 @@
   box-shadow: 0 6px 20px rgba(42, 92, 170, 0.35);
 }
 
-.btn-appointment:active {
-  transform: translateY(0);
+.btn-login {
+  background: transparent;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-/* Mobile Menu Button */
+.btn-login:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.btn-logout {
+  background: rgba(244, 67, 54, 0.8);
+  color: white;
+}
+
+.btn-logout:hover {
+  background: #f44336;
+  transform: translateY(-2px);
+}
+
+/* =========================================
+   DASHBOARD ICON BUTTON - COMPACT
+========================================= */
+
+.btn-dashboard-icon {
+  width: 46px; /* Reduced from 52px */
+  height: 46px; /* Reduced from 52px */
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: white;
+  font-size: 18px; /* Reduced from 20px */
+}
+
+.btn-dashboard-icon:hover {
+  background: linear-gradient(135deg, #2f80ed, #56ccf2);
+  border-color: transparent;
+  box-shadow: 0 8px 24px rgba(47, 128, 237, 0.35);
+}
+
+.btn-dashboard-icon i {
+  pointer-events: none;
+}
+
+/* =========================================
+   MOBILE MENU BUTTON
+========================================= */
+
 .mobile-menu-btn {
   display: none;
   background: none;
@@ -173,8 +265,8 @@
 }
 
 .hamburger {
-  width: 24px;
-  height: 20px;
+  width: 22px; /* Reduced from 24px */
+  height: 18px; /* Reduced from 20px */
   position: relative;
   display: flex;
   flex-direction: column;
@@ -183,8 +275,8 @@
 
 .hamburger span {
   width: 100%;
-  height: 2.5px;
-  background: #1a202c;
+  height: 2px; /* Reduced from 2.5px */
+  background: white;
   transition: all 0.3s ease;
   border-radius: 2px;
 }
@@ -194,7 +286,7 @@
 }
 
 .hamburger.open span:nth-child(1) {
-  transform: rotate(45deg) translate(5px, 5px);
+  transform: rotate(45deg) translate(4px, 4px);
 }
 
 .hamburger.open span:nth-child(2) {
@@ -202,10 +294,13 @@
 }
 
 .hamburger.open span:nth-child(3) {
-  transform: rotate(-45deg) translate(7px, -7px);
+  transform: rotate(-45deg) translate(6px, -6px);
 }
 
-/* Mobile Menu */
+/* =========================================
+   MOBILE MENU DROPDOWN
+========================================= */
+
 .mobile-menu {
   position: absolute;
   top: 100%;
@@ -219,28 +314,25 @@
   border-top: 1px solid #e2e8f0;
 }
 
-/* Mobile nav links */
 .mobile-nav-link {
   display: block;
-  padding: 0.9rem 2rem;
+  padding: 0.8rem 2rem; /* Reduced from 0.9rem */
   text-decoration: none;
   color: #1a202c;
   font-weight: 600;
-  font-size: 1rem;
-  letter-spacing: 0.5px;
+  font-size: 0.9rem; /* Reduced from 1rem */
+  letter-spacing: 0.3px; /* Reduced from 0.5px */
   transition: all 0.3s ease;
   border-left: 3px solid transparent;
 }
 
-/* Mobile hover effect */
 .mobile-nav-link:hover {
   color: #2A5CAA;
   background: linear-gradient(90deg, rgba(42, 92, 170, 0.08), transparent);
   border-left-color: #2A5CAA;
-  padding-left: 2.2rem;
+  padding-left: 2rem;
 }
 
-/* Mobile active state */
 .mobile-nav-link.active {
   color: #2A5CAA;
   background: linear-gradient(90deg, rgba(42, 92, 170, 0.12), transparent);
@@ -248,20 +340,25 @@
   font-weight: 700;
 }
 
-/* Mobile appointment button */
-.mobile-appointment-btn {
-  width: calc(100% - 4rem);
-  margin: 0.5rem 2rem;
-  padding: 0.9rem;
-  background: linear-gradient(135deg, #2A5CAA 0%, #3d6cb5 100%);
-  color: white;
+.mobile-appointment-btn,
+.mobile-login-btn,
+.mobile-logout-btn,
+.mobile-dashboard-btn {
+  width: calc(100% - 3rem);
+  margin: 0.5rem 1.5rem;
+  padding: 0.8rem; /* Reduced from 0.9rem */
   border: none;
   border-radius: 50px;
   font-weight: 700;
-  font-size: 0.9rem;
-  letter-spacing: 0.5px;
+  font-size: 0.85rem; /* Reduced from 0.9rem */
+  letter-spacing: 0.3px; /* Reduced from 0.5px */
   cursor: pointer;
   transition: all 0.3s ease;
+}
+
+.mobile-appointment-btn {
+  background: linear-gradient(135deg, #2A5CAA 0%, #3d6cb5 100%);
+  color: white;
 }
 
 .mobile-appointment-btn:hover {
@@ -269,7 +366,27 @@
   transform: translateY(-2px);
 }
 
-/* Responsive Design */
+.mobile-login-btn {
+  background: transparent;
+  color: #2A5CAA;
+  border: 2px solid #2A5CAA;
+}
+
+.mobile-logout-btn {
+  background: #f44336;
+  color: white;
+}
+
+.mobile-dashboard-btn {
+  background: #4CAF50;
+  color: white;
+}
+
+/* =========================================
+   RESPONSIVE DESIGN
+========================================= */
+
+/* Tablet */
 @media (max-width: 968px) {
   .desktop-menu {
     display: none;
@@ -281,133 +398,93 @@
   
   .nav-container {
     padding: 0 1.5rem;
+    max-width: 100%;
   }
   
-  .btn-appointment {
-    padding: 0.5rem 1.2rem;
-    font-size: 0.8rem;
+  /* Hide desktop buttons on tablet */
+  .btn-appointment,
+  .btn-login,
+  .btn-logout,
+  .btn-dashboard-icon {
+    display: none;
+  }
+  
+  .navbar-spacer {
+    height: 70px;
   }
   
   .logo-text-name {
-    font-size: 0.9rem;
+    font-size: 20px; /* Reduced from 22px */
   }
   
-  .logo-text-main {
-    font-size: 0.65rem;
+  .logo-icon-wrapper {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
   }
   
-  .logo-icon {
-    font-size: 1.6rem;
+  .logo-icon-img {
+    width: 32px;
+    height: 32px;
   }
 }
 
-@media (max-width: 576px) {
+/* Mobile */
+@media (max-width: 768px) {
+  .logo-text-wrapper {
+    display: none;
+  }
+  
+  .logo-wrapper {
+    gap: 0;
+    padding: 0;
+  }
+  
+  .logo-icon-wrapper {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+  }
+  
   .nav-container {
     padding: 0 1rem;
   }
-  
-  .logo-text-name {
-    font-size: 0.8rem;
-  }
-  
-  .logo-text-main {
-    font-size: 0.6rem;
-  }
-  
-  .logo-icon {
-    font-size: 1.4rem;
-  }
-  
-  .btn-appointment {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.7rem;
+}
+
+/* Small Mobile */
+@media (max-width: 576px) {
+  .navbar-spacer {
+    height: 60px;
   }
   
   .mobile-nav-link {
-    padding: 0.8rem 1.5rem;
-    font-size: 0.9rem;
+    padding: 0.7rem 1.5rem;
+    font-size: 0.85rem;
   }
   
-  .mobile-appointment-btn {
-    margin: 0.5rem 1.5rem;
+  .mobile-appointment-btn,
+  .mobile-login-btn,
+  .mobile-logout-btn,
+  .mobile-dashboard-btn {
+    margin: 0.4rem 1.5rem;
+    padding: 0.7rem;
+    font-size: 0.8rem;
     width: calc(100% - 3rem);
   }
 }
 
-/* Fix content hiding under navbar */
+/* Body styles */
 body {
-  padding-top: 80px;
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  overflow-x: hidden;
 }
 
-/* Smooth scroll behavior */
 html {
   scroll-behavior: smooth;
 }
 
-/* Remove default button styles */
 button {
   font-family: inherit;
-}
-/* Logo Icon Wrapper - Add this to your CSS */
-.logo-icon-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, #2A5CAA 0%, #667eea 100%);
-  border-radius: 50%;
-  transition: all 0.3s ease;
-}
-
-.stethoscope-icon {
-  width: 24px;
-  height: 24px;
-  color: white;
-}
-
-/* On hover effect for icon */
-.logo-wrapper:hover .logo-icon-wrapper {
-  transform: rotate(5deg) scale(1.05);
-  box-shadow: 0 4px 12px rgba(42, 92, 170, 0.3);
-}
-
-/* Update logo-wrapper gap */
-.logo-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  cursor: pointer;
-}
-
-/* For mobile responsive */
-@media (max-width: 968px) {
-  .logo-icon-wrapper {
-    width: 32px;
-    height: 32px;
-  }
-  
-  .stethoscope-icon {
-    width: 18px;
-    height: 18px;
-  }
-  
-  .logo-wrapper {
-    gap: 0.5rem;
-  }
-}
-
-@media (max-width: 576px) {
-  .logo-icon-wrapper {
-    width: 28px;
-    height: 28px;
-  }
-  
-  .stethoscope-icon {
-    width: 16px;
-    height: 16px;
-  }
 }

@@ -1,8 +1,8 @@
 import { Navigate } from "react-router-dom";
 
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem("token");
-  const userStr = localStorage.getItem("user");
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
   
   console.log("ProtectedRoute Check:", { token: !!token, userStr: !!userStr }); // Debug log
 
@@ -10,6 +10,8 @@ function ProtectedRoute({ children }) {
     // Clear any stale data
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     console.log("No token/user found, redirecting to login");
     return <Navigate to="/login" replace />;
   }

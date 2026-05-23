@@ -1,212 +1,173 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, Cell
-} from 'recharts';
+import api from "../../services/api";
 
 function Charts({ data }) {
-  // Default mock data if no data provided
-  const revenueData = data?.revenue || [
-    { month: 'Jan', revenue: 40000, expenses: 24000 },
-    { month: 'Feb', revenue: 45000, expenses: 25000 },
-    { month: 'Mar', revenue: 50000, expenses: 28000 },
-    { month: 'Apr', revenue: 48000, expenses: 26000 },
-    { month: 'May', revenue: 55000, expenses: 30000 },
-    { month: 'Jun', revenue: 60000, expenses: 32000 }
-  ];
+  const [chartData, setChartData] = useState({
+    monthlyRevenue: [],
+    paymentMethods: {},
+    topServices: []
+  });
+  const [loading, setLoading] = useState(true);
 
-  const appointmentData = data?.appointments || [
-    { name: 'Completed', value: 450 },
-    { name: 'Pending', value: 120 },
-    { name: 'Cancelled', value: 30 }
-  ];
+  useEffect(() => {
+    fetchChartData();
+  }, []);
 
-  const patientData = data?.patients || [
-    { month: 'Jan', new: 65 },
-    { month: 'Feb', new: 75 },
-    { month: 'Mar', new: 85 },
-    { month: 'Apr', new: 70 },
-    { month: 'May', new: 90 },
-    { month: 'Jun', new: 95 }
-  ];
+  const fetchChartData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch monthly revenue data
+      const currentYear = new Date().getFullYear();
+      const monthlyPromises = [];
+      
+      for (let month = 0; month < 12; month++) {
+        monthlyPromises.push(
+          api.get(`/reports/financial-summary?period=monthly&year=${currentYear}&month=${month + 1}`)
+            .catch(() => ({ data: { revenue: 0, expenses: 0 } }))
+        );
+      }
+      
+      const monthlyResults = await Promise.all(monthlyPromises);
+      const monthlyRevenue = monthlyResults.map(res => res.data.revenue || 0);
+      const monthlyExpenses = monthlyResults.map(res => res.data.expenses || 0);
+      
+      // Fetch payment methods
+      const paymentsRes = await api.get("/payments/stats").catch(() => ({ data: { methodBreakdown: {} } }));
+      
+      setChartData({
+        monthlyRevenue: monthlyRevenue,
+        monthlyExpenses: monthlyExpenses,
+        paymentMethods: paymentsRes.data.methodBreakdown || {},
+        months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      });
+      
+    } catch (error) {
+      console.error("Failed to fetch chart data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const COLORS = ['#4CAF50', '#FF9800', '#f44336', '#2196F3', '#9C27B0'];
+  const formatPKR = (value) => {
+    if (value === undefined || value === null) return "₨0";
+    return `₨${value.toLocaleString()}`;
+  };
 
-  const formatCurrency = (value) => `₹${value.toLocaleString()}`;
+  if (loading) {
+    return (
+      <div style={{ textAlign: "center", padding: "40px" }}>
+        <div className="loader"></div>
+        <p>Loading charts...</p>
+      </div>
+    );
+  }
 
   return (
-    <motion.div 
-      className="charts-container"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
-        gap: '20px',
-        padding: '20px 0'
-      }}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      style={{ display: "flex", flexDirection: "column", gap: "30px" }}
     >
-      {/* Revenue Chart */}
-      <motion.div 
-        className="chart-card"
-        whileHover={{ y: -5 }}
-        style={{
-          background: 'white',
-          padding: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-        }}
-      >
-        <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>Revenue Overview</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={revenueData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="month" stroke="#666" />
-            <YAxis stroke="#666" tickFormatter={formatCurrency} />
-            <Tooltip 
-              formatter={(value) => formatCurrency(value)}
-              contentStyle={{
-                background: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-              }}
-            />
-            <Legend />
-            <Line 
-              type="monotone" 
-              dataKey="revenue" 
-              stroke="#4CAF50" 
-              strokeWidth={2}
-              dot={{ fill: '#4CAF50' }}
-            />
-            <Line 
-              type="monotone" 
-              dataKey="expenses" 
-              stroke="#f44336" 
-              strokeWidth={2}
-              dot={{ fill: '#f44336' }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </motion.div>
-
-      {/* Appointments Chart */}
-      <motion.div 
-        className="chart-card"
-        whileHover={{ y: -5 }}
-        style={{
-          background: 'white',
-          padding: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-        }}
-      >
-        <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>Appointment Status</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie
-              data={appointmentData}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-              outerRadius={100}
-              fill="#8884d8"
-              dataKey="value"
-            >
-              {appointmentData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          gap: '20px',
-          marginTop: '10px'
-        }}>
-          {appointmentData.map((item, index) => (
-            <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ 
-                width: '12px', 
-                height: '12px', 
-                borderRadius: '50%', 
-                background: COLORS[index % COLORS.length] 
-              }} />
-              <span style={{ fontSize: '12px', color: '#666' }}>{item.name}</span>
-            </div>
-          ))}
+      {/* Monthly Revenue Chart */}
+      <div style={{
+        background: "white",
+        borderRadius: "15px",
+        padding: "25px",
+        boxShadow: "0 4px 15px rgba(0,0,0,0.1)"
+      }}>
+        <h3 style={{ marginBottom: "20px", color: "#333" }}>📊 Monthly Revenue & Expenses</h3>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f5f5f5", borderBottom: "2px solid #ddd" }}>
+                <th style={{ padding: "12px", textAlign: "left" }}>Month</th>
+                <th style={{ padding: "12px", textAlign: "right" }}>Revenue (₨)</th>
+                <th style={{ padding: "12px", textAlign: "right" }}>Expenses (₨)</th>
+                <th style={{ padding: "12px", textAlign: "right" }}>Profit (₨)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {chartData.months?.map((month, i) => {
+                const revenue = chartData.monthlyRevenue?.[i] || 0;
+                const expense = chartData.monthlyExpenses?.[i] || 0;
+                const profit = revenue - expense;
+                return (
+                  <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
+                    <td style={{ padding: "10px", fontWeight: "bold" }}>{month}</td>
+                    <td style={{ padding: "10px", textAlign: "right", color: "#4CAF50" }}>{formatPKR(revenue)}</td>
+                    <td style={{ padding: "10px", textAlign: "right", color: "#f44336" }}>{formatPKR(expense)}</td>
+                    <td style={{ padding: "10px", textAlign: "right", color: profit >= 0 ? "#4CAF50" : "#f44336", fontWeight: "bold" }}>
+                      {formatPKR(profit)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{ background: "#f5f5f5", borderTop: "2px solid #ddd", fontWeight: "bold" }}>
+                <td style={{ padding: "12px" }}>Total</td>
+                <td style={{ padding: "12px", textAlign: "right", color: "#4CAF50" }}>
+                  {formatPKR(chartData.monthlyRevenue?.reduce((a, b) => a + b, 0) || 0)}
+                </td>
+                <td style={{ padding: "12px", textAlign: "right", color: "#f44336" }}>
+                  {formatPKR(chartData.monthlyExpenses?.reduce((a, b) => a + b, 0) || 0)}
+                </td>
+                <td style={{ padding: "12px", textAlign: "right", color: "#2196F3" }}>
+                  {formatPKR((chartData.monthlyRevenue?.reduce((a, b) => a + b, 0) || 0) - (chartData.monthlyExpenses?.reduce((a, b) => a + b, 0) || 0))}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
-      </motion.div>
+      </div>
 
-      {/* New Patients Chart */}
-      <motion.div 
-        className="chart-card"
-        whileHover={{ y: -5 }}
-        style={{
-          background: 'white',
-          padding: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-          gridColumn: 'span 2'
-        }}
-      >
-        <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>New Patients</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={patientData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="month" stroke="#666" />
-            <YAxis stroke="#666" />
-            <Tooltip />
-            <Bar dataKey="new" fill="#2196F3" radius={[5, 5, 0, 0]}>
-              {patientData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </motion.div>
-
-      {/* Summary Cards */}
-      <motion.div 
-        className="summary-card"
-        style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          padding: '20px',
-          borderRadius: '12px',
-          color: 'white'
-        }}
-      >
-        <h4 style={{ margin: '0 0 10px 0', opacity: 0.9 }}>Total Revenue</h4>
-        <p style={{ fontSize: '28px', fontWeight: 'bold', margin: '0' }}>
-          ₹{revenueData.reduce((sum, item) => sum + item.revenue, 0).toLocaleString()}
-        </p>
-        <p style={{ margin: '5px 0 0 0', opacity: 0.8, fontSize: '14px' }}>
-          ↑ 12% from last month
-        </p>
-      </motion.div>
-
-      <motion.div 
-        className="summary-card"
-        style={{
-          background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-          padding: '20px',
-          borderRadius: '12px',
-          color: 'white'
-        }}
-      >
-        <h4 style={{ margin: '0 0 10px 0', opacity: 0.9 }}>Total Appointments</h4>
-        <p style={{ fontSize: '28px', fontWeight: 'bold', margin: '0' }}>
-          {appointmentData.reduce((sum, item) => sum + item.value, 0)}
-        </p>
-        <p style={{ margin: '5px 0 0 0', opacity: 0.8, fontSize: '14px' }}>
-          {appointmentData[0]?.value} completed
-        </p>
-      </motion.div>
+      {/* Payment Methods Pie Chart */}
+      {Object.keys(chartData.paymentMethods).length > 0 && (
+        <div style={{
+          background: "white",
+          borderRadius: "15px",
+          padding: "25px",
+          boxShadow: "0 4px 15px rgba(0,0,0,0.1)"
+        }}>
+          <h3 style={{ marginBottom: "20px", color: "#333" }}>💳 Payment Methods Breakdown</h3>
+          <div style={{ 
+            display: "grid", 
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
+            gap: "15px" 
+          }}>
+            {Object.entries(chartData.paymentMethods).map(([method, amount]) => (
+              <div
+                key={method}
+                style={{
+                  padding: "20px",
+                  background: "linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)",
+                  borderRadius: "12px",
+                  textAlign: "center",
+                  transition: "transform 0.3s",
+                  cursor: "pointer"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
+                onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+              >
+                <div style={{ fontSize: "32px", marginBottom: "10px" }}>
+                  {method === "Cash" ? "💵" : 
+                   method === "Card" ? "💳" : 
+                   method === "Easypaisa" ? "📱" : 
+                   method === "JazzCash" ? "📱" : 
+                   method === "Bank Transfer" ? "🏦" : "💰"}
+                </div>
+                <div style={{ fontWeight: "bold", fontSize: "16px", marginBottom: "5px" }}>{method}</div>
+                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#4CAF50" }}>{formatPKR(amount)}</div>
+                <div style={{ fontSize: "12px", color: "#666", marginTop: "5px" }}>
+                  {((amount / Object.values(chartData.paymentMethods).reduce((a, b) => a + b, 0)) * 100).toFixed(1)}% of total
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
