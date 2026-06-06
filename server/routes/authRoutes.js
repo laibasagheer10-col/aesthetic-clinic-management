@@ -5,7 +5,9 @@ const {
   registerUser, 
   loginUser, 
   logoutUser,
-  getCurrentUser 
+  getCurrentUser,
+  verifyEmail,
+  resendVerificationEmail
 } = require('../controllers/authController');
 const { 
   forgotPassword, 
@@ -43,5 +45,9 @@ router.get('/me', verifyToken, getCurrentUser);
 // 🔐 Forgot Password Routes
 router.post('/forgot-password', forgotPasswordValidation, forgotPassword);
 router.put('/reset-password/:token', resetPasswordValidation, resetPassword);
+
+// 📧 Email Verification Routes
+router.get('/verify-email/:token', verifyEmail);
+router.post('/resend-verification-email', resendVerificationEmail);
 
 module.exports = router;

@@ -29,7 +29,15 @@ const UserSchema = new Schema({
   
   // 📧 NEW FIELDS for password reset
   resetPasswordToken: String,
-  resetPasswordExpire: Date
+  resetPasswordExpire: Date,
+  
+  // 📧 NEW FIELDS for email verification
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerificationToken: String,
+  emailVerificationExpire: Date
 }, { timestamps: true });
 
 // Virtual for checking if account is locked
