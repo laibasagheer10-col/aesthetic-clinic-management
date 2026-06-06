@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { validationResult } = require("express-validator");
 const sendEmail = require("../utils/mailer");
+const SMSService = require("../config/smsService");
 
 // Helper response functions
 const successResponse = (res, message, data = {}, statusCode = 200) => {
@@ -24,7 +25,7 @@ const errorResponse = (res, message, statusCode = 400, errors = null) => {
   return res.status(statusCode).json(response);
 };
 
-// REGISTER USER
+// REGISTER USER - Send SMS verification
 exports.registerUser = async (req, res, next) => {
   try {
     const { name, email, password, phone } = req.body;
@@ -34,9 +35,16 @@ exports.registerUser = async (req, res, next) => {
       return errorResponse(res, "Validation failed", 400, errors.array());
     }
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return errorResponse(res, "User already exists", 400);
+    // ✅ Check email uniqueness
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+      return errorResponse(res, "Email already exists", 400);
+    }
+
+    // ✅ Check phone uniqueness
+    const existingPhone = await User.findOne({ phone });
+    if (existingPhone) {
+      return errorResponse(res, "Phone number already exists", 400);
     }
 
     let patientRole = await Role.findOne({ roleName: 'Patient' });
@@ -50,13 +58,14 @@ exports.registerUser = async (req, res, next) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 📧 Generate verification token
+    // 📱 Generate verification token
     const verificationToken = crypto.randomBytes(32).toString("hex");
     const hashedVerificationToken = crypto
       .createHash("sha256")
       .update(verificationToken)
       .digest("hex");
 
+    // Create temporary user record (pending verification)
     const user = await User.create({
       name,
       email,
@@ -69,53 +78,30 @@ exports.registerUser = async (req, res, next) => {
       emailVerificationExpire: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
     });
 
-    // 📧 Create verification link
-    const verificationLink = `http://localhost:5173/verify-email/${verificationToken}`;
+    // 📱 Create verification link
+    const verificationLink = `http://localhost:5173/verify-phone/${verificationToken}`;
 
-    // 📧 Send verification email
-    const emailSent = await sendEmail({
-      to: user.email,
-      subject: "Email Verification - Aesthetic Clinic",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-          <h2 style="color: #333; text-align: center;">Welcome to Aesthetic Clinic!</h2>
-          <p>Hello ${user.name},</p>
-          <p>Thank you for signing up. Please verify your email address to complete your registration:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${verificationLink}" 
-               style="background-color: #4CAF50; color: white; padding: 12px 24px; 
-                      text-decoration: none; border-radius: 4px; display: inline-block;">
-              Verify Email
-            </a>
-          </div>
-          <p>Or copy and paste this link in your browser:</p>
-          <p style="color: #666; word-break: break-all;">${verificationLink}</p>
-          <p><strong>This link will expire in 24 hours.</strong></p>
-          <p>If you didn't create this account, please ignore this email.</p>
-          <hr style="border: 1px solid #eee; margin: 20px 0;">
-          <p style="color: #999; font-size: 12px; text-align: center;">This is an automated message, please do not reply.</p>
-        </div>
-      `,
-    });
-
-    if (!emailSent) {
-      return errorResponse(res, "Failed to send verification email", 500);
+    // 📱 Send SMS with verification link
+    const smsService = new SMSService();
+    try {
+      const smsMessage = `Welcome to Aesthetic Clinic! 👋\n\nClick below to verify your phone:\n${verificationLink}\n\nThis link expires in 24 hours.`;
+      await smsService.sendSMS(phone, smsMessage);
+      
+      console.log('✅ SMS sent to', phone);
+    } catch (smsError) {
+      console.error('⚠️ SMS error:', smsError);
+      // Delete user if SMS fails
+      await User.deleteOne({ _id: user._id });
+      return errorResponse(res, "Failed to send verification SMS", 500);
     }
-
-    await user.populate('roleId');
-    user.password = undefined;
 
     return res.status(201).json({
       success: true,
-      message: "Account created! Please check your email to verify your account.",
-      user: {
-        id: user._id,
-        name: user.name,
+      message: "Verification SMS sent to your phone. Click the link to complete registration.",
+      data: {
         email: user.email,
         phone: user.phone,
-        role: 'Patient',
-        status: user.status,
-        isEmailVerified: user.isEmailVerified
+        verificationSentTo: phone
       }
     });
 
@@ -140,8 +126,8 @@ exports.loginUser = async (req, res, next) => {
       return errorResponse(res, "Invalid email or password", 401);
     }
 
-    // 📧 Check if email is verified
-    if (!user.isEmailVerified) {
+    // 📧 Check if email is verified (allow old accounts without this field)
+    if (user.hasOwnProperty('isEmailVerified') && !user.isEmailVerified) {
       return errorResponse(res, "Please verify your email before logging in", 403);
     }
 
@@ -357,6 +343,54 @@ exports.resendVerificationEmail = async (req, res, next) => {
 
   } catch (error) {
     console.error('Resend verification email error:', error);
+    next(error);
+  }
+};
+
+// 📱 VERIFY PHONE - Complete Registration
+exports.verifyPhone = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      return errorResponse(res, "Verification token is required", 400);
+    }
+
+    // Hash the token to match with DB
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // Find user with token and check expiry
+    const user = await User.findOne({
+      emailVerificationToken: hashedToken,
+      emailVerificationExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return errorResponse(res, "Invalid or expired verification link", 400);
+    }
+
+    // Mark account as verified and complete registration
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpire = undefined;
+
+    await user.save();
+
+    return successResponse(res, "Phone verification successful! Your account has been created. You can now login.", {
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        isEmailVerified: user.isEmailVerified
+      }
+    }, 200);
+
+  } catch (error) {
+    console.error('Phone verification error:', error);
     next(error);
   }
 };

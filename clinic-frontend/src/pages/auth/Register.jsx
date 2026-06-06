@@ -38,8 +38,8 @@ function Register() {
       newErrors.email = "Valid email is required";
     }
 
-    if (!formData.phone.match(/^\d{10}$/)) {
-      newErrors.phone = "Valid 10-digit phone number is required";
+    if (!formData.phone.match(/^\d{11}$/)) {
+      newErrors.phone = "Valid 11-digit phone number is required";
     }
 
     if (formData.password.length < 6) {
@@ -89,8 +89,11 @@ function Register() {
       console.log('Registration response:', response.data);
 
       if (response.data.success) {
-        toast.success('Registration successful! Please login.');
-        navigate('/login');
+        toast.success('📱 Verification SMS sent to your phone!');
+        // Show SMS sent message or redirect to SMS verification page
+        setTimeout(() => {
+          toast.loading('Please check your SMS for the verification link...');
+        }, 500);
       } else {
         toast.error(response.data.message || 'Registration failed');
       }
@@ -184,7 +187,7 @@ function Register() {
                       name="phone"
                       value={formData.phone}
                       onChange={handleChange}
-                      placeholder="10-digit mobile number"
+                      placeholder="11-digit mobile number"
                       className={errors.phone ? 'error' : ''}
                     />
                   </div>
